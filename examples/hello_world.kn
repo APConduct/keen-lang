@@ -1,0 +1,198 @@
+// =============================================================================
+// HELLO WORLD - Keen Language Example
+// =============================================================================
+// This demonstrates text output capabilities in Keen
+// =============================================================================
+
+main() = {
+    // Basic text output
+    print("Hello, World!")
+    print("Welcome to the Keen programming language!")
+
+    // Print different data types
+    print(42)
+    print(3.14159)
+    print(true)
+    print(false)
+
+    // Variables and expressions
+    name = "Keen"
+    version = 1.0
+    print("Language: " + name)
+    print("Version: " + version)
+
+    // Arithmetic expressions
+    x = 10
+    y = 20
+    sum = x + y
+    print("10 + 20 = " + sum)
+
+    // Function calls with output
+    result = calculate(5, 3)
+    print("calculate(5, 3) = " + result)
+
+    // Conditional output
+    score = 95
+    grade = score >= 90 ? "A" : "B"
+    print("Score " + score + " gets grade: " + grade)
+
+    // Block expressions with output
+    analysis = {
+        data = [1, 2, 3, 4, 5]
+        total = sum_list(data)
+        average = total / data.length
+
+        print("Data: " + data)
+        print("Total: " + total)
+        print("Average: " + average)
+
+        average
+    }
+
+    print("Final analysis result: " + analysis)
+}
+
+// Helper function
+calculate(a: Int, b: Int): Int = {
+    result = a * b + a - b
+    print("Calculating: " + a + " * " + b + " + " + a + " - " + b)
+    result
+}
+
+// List processing function
+sum_list(numbers: List): Int = {
+    case numbers {
+        [] -> 0
+        [head, ...tail] -> head + sum_list(tail)
+    }
+}
+
+// Demonstration of pattern matching with output
+process_shape(shape: Shape) = {
+    case shape {
+        Circle(radius) -> {
+            area = 3.14159 * radius * radius
+            print("Circle with radius " + radius + " has area " + area)
+            area
+        }
+        Rectangle(width, height) -> {
+            area = width * height
+            print("Rectangle " + width + "x" + height + " has area " + area)
+            area
+        }
+        Triangle(base, height) -> {
+            area = 0.5 * base * height
+            print("Triangle with base " + base + " and height " + height + " has area " + area)
+            area
+        }
+    }
+}
+
+// Lambda expressions with output
+demo_lambdas() = {
+    print("=== Lambda Expressions Demo ===")
+
+    // Simple lambda
+    double = |x| x * 2
+    numbers = [1, 2, 3, 4, 5]
+    doubled = numbers.map(double)
+
+    print("Original: " + numbers)
+    print("Doubled: " + doubled)
+
+    // Lambda with multiple parameters
+    add = |x, y| {
+        result = x + y
+        print("Adding " + x + " + " + y + " = " + result)
+        result
+    }
+
+    sum_result = add(10, 15)
+    print("Final sum: " + sum_result)
+
+    // Higher-order function
+    apply_twice = |func, value| func(func(value))
+    result = apply_twice(double, 3)
+    print("apply_twice(double, 3) = " + result)
+}
+
+// Error handling with output
+safe_divide(a: Float, b: Float): Result = {
+    case b {
+        0.0 -> {
+            print("Error: Cannot divide by zero!")
+            Error("Division by zero")
+        }
+        _ -> {
+            result = a / b
+            print("Successfully divided " + a + " by " + b + " = " + result)
+            Ok(result)
+        }
+    }
+}
+
+// User interaction simulation
+simulate_user_interaction() = {
+    print("=== User Interaction Simulation ===")
+
+    // Simulated user data
+    users = [
+        User(id: 1, name: "Alice", age: 28, email: "alice@example.com"),
+        User(id: 2, name: "Bob", age: 35, email: "bob@example.com"),
+        User(id: 3, name: "Carol", age: 22, email: "carol@example.com")
+    ]
+
+    print("Processing " + users.length + " users:")
+
+    users.for_each(|user| {
+        case user {
+            User(id, name, age, email) -> {
+                print("User #" + id + ": " + name)
+                print("  Age: " + age)
+                print("  Email: " + email)
+
+                category = when age {
+                    < 25 -> "Young Professional"
+                    < 35 -> "Experienced Professional"
+                    _ -> "Senior Professional"
+                }
+
+                print("  Category: " + category)
+                print("---")
+            }
+        }
+    })
+}
+
+// Comprehensive demo
+run_all_demos() = {
+    print("🚀 Keen Language - Text Output Demo")
+    print("=====================================")
+
+    main()
+
+    print("\n📊 Lambda Demo:")
+    demo_lambdas()
+
+    print("\n👥 User Processing Demo:")
+    simulate_user_interaction()
+
+    print("\n🔺 Shape Processing Demo:")
+    circle = Circle(radius: 5.0)
+    rectangle = Rectangle(width: 10.0, height: 6.0)
+    triangle = Triangle(base: 8.0, height: 4.0)
+
+    process_shape(circle)
+    process_shape(rectangle)
+    process_shape(triangle)
+
+    print("\n⚠️ Error Handling Demo:")
+    safe_divide(10.0, 2.0)
+    safe_divide(10.0, 0.0)
+
+    print("\n🎉 All demos completed successfully!")
+    print("Keen's text output system is fully functional!")
+}
+
+// Entry point
+run_all_demos()

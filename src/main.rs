@@ -623,4 +623,78 @@ fn main() {
 
     println!("\n🎉 COMPILER INTEGRATION COMPLETE!");
     println!("Keen now has a working Cranelift-based compiler backend!");
+
+    // Test text output capabilities
+    println!("\n📝 Testing Text Output Capabilities");
+    println!("====================================");
+
+    // Import runtime functions
+    use keen::runtime::*;
+
+    // Test our runtime print functions directly
+    println!("Testing runtime functions:");
+
+    // Test integer printing
+    print!("Integer 42: ");
+    keen_print_int(42);
+
+    // Test float printing
+    print!("Float 3.14: ");
+    keen_print_float(3.14);
+
+    // Test boolean printing
+    print!("Boolean true: ");
+    keen_print_bool(1);
+    print!("Boolean false: ");
+    keen_print_bool(0);
+
+    // Test string creation and printing
+    let test_string = "Hello from Keen!";
+    let c_string = keen_create_string(test_string.as_ptr(), test_string.len());
+    if !c_string.is_null() {
+        print!("String literal: ");
+        keen_print_string(c_string);
+        unsafe {
+            keen_free(c_string as *mut u8, test_string.len() + 1);
+        }
+    }
+
+    // Test string concatenation
+    use std::ffi::CString;
+    let str1 = CString::new("Hello, ").unwrap();
+    let str2 = CString::new("Keen Language!").unwrap();
+    let concatenated = keen_concat_strings(str1.as_ptr(), str2.as_ptr());
+    if !concatenated.is_null() {
+        print!("Concatenated string: ");
+        keen_print_string(concatenated);
+        unsafe {
+            let concat_len = std::ffi::CStr::from_ptr(concatenated).to_bytes().len();
+            keen_free(concatenated as *mut u8, concat_len + 1);
+        }
+    }
+
+    // Test type conversion functions
+    print!("Integer 123 as string: ");
+    let int_as_str = keen_int_to_string(123);
+    if !int_as_str.is_null() {
+        keen_print_string(int_as_str);
+        unsafe {
+            let str_len = std::ffi::CStr::from_ptr(int_as_str).to_bytes().len();
+            keen_free(int_as_str as *mut u8, str_len + 1);
+        }
+    }
+
+    print!("Boolean true as string: ");
+    let bool_as_str = keen_bool_to_string(1);
+    if !bool_as_str.is_null() {
+        keen_print_string(bool_as_str);
+        unsafe {
+            let str_len = std::ffi::CStr::from_ptr(bool_as_str).to_bytes().len();
+            keen_free(bool_as_str as *mut u8, str_len + 1);
+        }
+    }
+
+    println!("\n✅ TEXT OUTPUT SYSTEM WORKING!");
+    println!("Keen can now output text through the runtime system!");
+    println!("Ready for print() function integration in compiled code!");
 }

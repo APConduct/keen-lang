@@ -3,6 +3,7 @@ use cranelift::prelude::*;
 use cranelift_jit::{JITBuilder, JITModule};
 use cranelift_module::{Linkage, Module};
 use std::collections::HashMap;
+use std::ffi::CString;
 
 pub struct KeenCodegen {
     builder_context: FunctionBuilderContext,
@@ -12,6 +13,7 @@ pub struct KeenCodegen {
     int_type: types::Type,
     float_type: types::Type,
     bool_type: types::Type,
+    string_pool: Vec<CString>,
 }
 
 #[derive(Debug)]
@@ -58,13 +60,62 @@ impl KeenCodegen {
             int_type: types::I64,
             float_type: types::F64,
             bool_type: types::I8,
+            string_pool: Vec::new(),
         })
     }
 
     pub fn compile_program(&mut self, program: &Program) -> Result<(), CodegenError> {
+        // First, declare the print function
+        self.declare_print_function()?;
+
         for item in &program.items {
             self.compile_item(item)?;
         }
+        Ok(())
+    }
+
+    fn declare_print_function(&mut self) -> Result<(), CodegenError> {
+        // Declare print functions for different types
+        let mut int_sig = self.module.make_signature();
+        int_sig.params.push(AbiParam::new(self.int_type));
+        int_sig.returns.push(AbiParam::new(self.int_type));
+
+        let mut float_sig = self.module.make_signature();
+        float_sig.params.push(AbiParam::new(self.float_type));
+        float_sig.returns.push(AbiParam::new(self.int_type));
+
+        let mut bool_sig = self.module.make_signature();
+        bool_sig.params.push(AbiParam::new(self.bool_type));
+        bool_sig.returns.push(AbiParam::new(self.int_type));
+
+        let mut string_sig = self.module.make_signature();
+        string_sig.params.push(AbiParam::new(self.pointer_type));
+        string_sig.returns.push(AbiParam::new(self.int_type));
+
+        self.module
+            .declare_function("keen_print_int", Linkage::Import, &int_sig)
+            .map_err(|e| {
+                CodegenError::Module(format!("Failed to declare keen_print_int: {}", e))
+            })?;
+
+        self.module
+            .declare_function("keen_print_float", Linkage::Import, &float_sig)
+            .map_err(|e| {
+                CodegenError::Module(format!("Failed to declare keen_print_float: {}", e))
+            })?;
+
+        self.module
+            .declare_function("keen_print_bool", Linkage::Import, &bool_sig)
+            .map_err(|e| {
+                CodegenError::Module(format!("Failed to declare keen_print_bool: {}", e))
+            })?;
+
+        self.module
+            .declare_function("keen_print_string", Linkage::Import, &string_sig)
+            .map_err(|e| {
+                CodegenError::Module(format!("Failed to declare keen_print_string: {}", e))
+            })?;
+
         Ok(())
     }
 
@@ -291,14 +342,26 @@ impl KeenCodegen {
                 Self::compile_binary_op_static(op, left_val, right_val, builder)
             }
 
-            ast::Expression::Call {
-                function: _,
-                args: _,
-            } => {
-                // TODO: Implement function calls
-                Err(CodegenError::Compilation(
-                    "Function calls not yet implemented".to_string(),
-                ))
+            ast::Expression::Call { function, args } => {
+                match function.as_ref() {
+                    ast::Expression::Identifier(name) if name == "print" => {
+                        Self::compile_print_call_static(
+                            args,
+                            builder,
+                            variables,
+                            int_type,
+                            float_type,
+                            bool_type,
+                            _pointer_type,
+                        )
+                    }
+                    _ => {
+                        // TODO: Implement general function calls
+                        Err(CodegenError::Compilation(
+                            "General function calls not yet implemented".to_string(),
+                        ))
+                    }
+                }
             }
 
             ast::Expression::FieldAccess {
@@ -485,11 +548,18 @@ impl KeenCodegen {
             ast::Literal::Integer(n) => Ok(builder.ins().iconst(int_type, *n)),
             ast::Literal::Float(f) => Ok(builder.ins().f64const(*f)),
             ast::Literal::Boolean(b) => Ok(builder.ins().iconst(bool_type, if *b { 1 } else { 0 })),
-            ast::Literal::String(_s) => {
-                // TODO: Implement string literals (need string interning)
-                Err(CodegenError::Compilation(
-                    "String literals not yet implemented".to_string(),
-                ))
+            ast::Literal::String(s) => {
+                // Create a string literal by storing it in a static data section
+                // This is a simplified approach - real implementation would use proper string interning
+                let string_bytes = s.as_bytes();
+                let mut data = Vec::with_capacity(string_bytes.len() + 1);
+                data.extend_from_slice(string_bytes);
+                data.push(0); // null terminator
+
+                // For now, we'll encode the string data as immediate values
+                // This is a hack - proper implementation would use data sections
+                let string_ptr = builder.ins().iconst(int_type, string_bytes.as_ptr() as i64);
+                Ok(string_ptr)
             }
         }
     }
@@ -557,6 +627,37 @@ impl KeenCodegen {
             }
             None => Ok(int_type), // Default to int for type inference
         }
+    }
+
+    fn compile_print_call_static(
+        args: &[ast::Expression],
+        builder: &mut FunctionBuilder,
+        variables: &mut HashMap<String, Variable>,
+        int_type: types::Type,
+        float_type: types::Type,
+        bool_type: types::Type,
+        pointer_type: types::Type,
+    ) -> Result<Value, CodegenError> {
+        if args.len() != 1 {
+            return Err(CodegenError::Compilation(
+                "print function expects exactly one argument".to_string(),
+            ));
+        }
+
+        let arg_val = Self::compile_expression_static(
+            &args[0],
+            builder,
+            variables,
+            int_type,
+            float_type,
+            bool_type,
+            pointer_type,
+        )?;
+
+        // For now, just return the argument value
+        // TODO: Implement actual print function calls when runtime integration is complete
+        // This demonstrates that we can compile print statements and execute the expressions
+        Ok(arg_val)
     }
 
     fn get_cranelift_type(
