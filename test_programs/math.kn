@@ -1,0 +1,170 @@
+// Math Operations Test Program
+// This program tests various mathematical operations and functions in Keen
+
+// Basic arithmetic functions
+add(x: Int, y: Int): Int = x + y
+subtract(x: Int, y: Int): Int = x - y
+multiply(x: Int, y: Int): Int = x * y
+divide(x: Int, y: Int): Int = x / y
+
+// More complex mathematical operations
+square(x: Int): Int = x * x
+cube(x: Int): Int = x * x * x
+
+// Factorial function (recursive style)
+factorial(n: Int): Int = {
+    case n {
+        0 -> 1
+        1 -> 1
+        _ -> n * factorial(n - 1)
+    }
+}
+
+// Power function
+power(base: Int, exponent: Int): Int = {
+    case exponent {
+        0 -> 1
+        1 -> base
+        _ -> base * power(base, exponent - 1)
+    }
+}
+
+// Float operations
+add_floats(x: Float, y: Float): Float = x + y
+multiply_floats(x: Float, y: Float): Float = x * y
+
+// Mathematical constants
+pi = 3.14159
+e = 2.71828
+
+// Circle area calculation
+circle_area(radius: Float): Float = pi * radius * radius
+
+// Rectangle area
+rectangle_area(width: Float, height: Float): Float = width * height
+
+// Chaining mathematical operations
+calculate_complex = |x| x
+    |> square
+    |> add(10)
+    |> multiply(2)
+
+// Mathematical expressions with variables
+test_expressions(): Int = {
+    a = 5
+    b = 3
+    c = 2
+
+    result1 = a + b * c    // Should be 11 (3 * 2 + 5)
+    result2 = (a + b) * c  // Should be 16 ((5 + 3) * 2)
+    result3 = a * b + c    // Should be 17 (5 * 3 + 2)
+
+    result1 + result2 + result3  // Should be 44
+}
+
+// Comparison operations
+is_greater(x: Int, y: Int): Boolean = x > y
+is_equal(x: Int, y: Int): Boolean = x == y
+is_positive(x: Int): Boolean = x > 0
+
+// Mathematical utility functions
+absolute_value(x: Int): Int = {
+    case x >= 0 {
+        true -> x
+        false -> -x
+    }
+}
+
+max_of_two(x: Int, y: Int): Int = x > y ? x : y
+min_of_two(x: Int, y: Int): Int = x < y ? x : y
+
+// Statistical functions
+average(a: Int, b: Int): Float = (a + b) / 2.0
+
+// Test all mathematical operations
+main(): Int = {
+    // Test basic operations
+    sum = add(5, 3)        // 8
+    diff = subtract(10, 4) // 6
+    prod = multiply(7, 6)  // 42
+    quot = divide(20, 4)   // 5
+
+    // Test complex operations
+    sq = square(4)         // 16
+    fact = factorial(5)    // 120
+    pow = power(2, 3)      // 8
+
+    // Test expressions
+    expr_result = test_expressions()  // 44
+
+    // Test chaining
+    chain_result = calculate_complex(3)  // ((3^2 + 10) * 2) = 38
+
+    // Test comparisons
+    is_pos = is_positive(sum)  // true
+    is_eq = is_equal(4, 4)     // true
+    is_gt = is_greater(10, 5)  // true
+
+    // Test utilities
+    abs_val = absolute_value(-5)  // 5
+    max_val = max_of_two(15, 12)  // 15
+    min_val = min_of_two(8, 3)    // 3
+
+    // Return sum of some results for verification
+    sum + diff + prod + quot + sq
+}
+
+// Advanced mathematical concepts for future implementation
+fibonacci(n: Int): Int = {
+    case n {
+        0 -> 0
+        1 -> 1
+        _ -> fibonacci(n - 1) + fibonacci(n - 2)
+    }
+}
+
+// Prime number check
+is_prime(n: Int): Boolean = {
+    case n {
+        <= 1 -> false
+        2 -> true
+        _ -> check_divisors(n, 2)
+    }
+}
+
+check_divisors(n: Int, divisor: Int): Boolean = {
+    case divisor * divisor > n {
+        true -> true  // No divisors found, it's prime
+        false -> {
+            case n % divisor == 0 {
+                true -> false   // Found a divisor, not prime
+                false -> check_divisors(n, divisor + 1)
+            }
+        }
+    }
+}
+
+// Mathematical sequences
+arithmetic_sequence(start: Int, step: Int, n: Int): Int = start + (n - 1) * step
+geometric_sequence(start: Int, ratio: Int, n: Int): Int = start * power(ratio, n - 1)
+
+// String interpolation with math results
+format_result(operation: String, x: Int, y: Int, result: Int): String =
+    "{operation}: {x} and {y} = {result}"
+
+// Demo function showing mathematical capabilities
+demo_math(): String = {
+    x = 12
+    y = 5
+
+    sum_result = add(x, y)
+    product_result = multiply(x, y)
+    power_result = power(x, 2)
+
+    message = "Math Demo Results:"
+    add_msg = format_result("Addition", x, y, sum_result)
+    mul_msg = format_result("Multiplication", x, y, product_result)
+    pow_msg = format_result("Square", x, x, power_result)
+
+    "{message}\n{add_msg}\n{mul_msg}\n{pow_msg}"
+}

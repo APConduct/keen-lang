@@ -1,0 +1,21 @@
+// Simple Hello World program in Keen
+main(): Int = {
+    result = 42
+    result
+}
+
+// Test basic arithmetic
+add(x: Int, y: Int): Int = x + y
+
+// Test variable declaration
+greeting = "Hello, Keen!"
+number = 123
+
+// Test chaining (will be parsed but not fully executed yet)
+process_data = |data| data
+    |> add(10)
+    |> add(5)
+
+// Test string interpolation
+name = "World"
+message = "Hello, {name}!"
