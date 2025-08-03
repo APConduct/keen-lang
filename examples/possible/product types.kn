@@ -1,0 +1,184 @@
+// =============================================================================
+// PRODUCT TYPE DEFINITIONS
+// =============================================================================
+
+// Simple nominal types
+type UserId = UserId(id: Int)
+type ProductId = ProductId(id: Int)
+type Email = Email(address: String)
+
+// Complex product types
+type User = User(id: UserId, name: String, email: Email, age: Int)
+type Product = Product(id: ProductId, name: String, price: Float, category: String)
+type Order = Order(id: Int, user: UserId, items: List[ProductId], total: Float)
+
+// Geometric types (same structure, different meaning)
+type Point = Point(x: Float, y: Float)
+type Vector = Vector(x: Float, y: Float)
+type Size = Size(width: Float, height: Float)
+
+// Result type for error handling
+type Result = Ok(value: Any) | Error(message: String)
+
+// Option type
+type Option = Some(value: Any) | None
+
+// =============================================================================
+// NOMINAL TYPING IN ACTION
+// =============================================================================
+
+// These functions only accept their specific nominal types
+create_user(name: String, email_str: String, age: Int): Result {
+email = Email(email_str)
+id = generate_user_id()
+
+```
+when age {
+    < 0 -> Error("Age cannot be negative")
+    > 150 -> Error("Age seems unrealistic")
+    _ -> Ok(User(id, name, email, age))
+}
+```
+
+}
+
+process_order(order: Order): Result {
+case fetch_user(order.user) {
+Some(user) -> {
+total = calculate_total(order.items)
+charge_user(user, total)
+}
+None -> Error(“User not found”)
+}
+}
+
+// Nominal types prevent mixing up IDs
+transfer_money(from: UserId, to: UserId, amount: Float) {
+// …
+}
+
+// This would be a compile error:
+// transfer_money(ProductId(123), UserId(456), 100.0)  // Error!
+
+// =============================================================================
+// STRUCTURAL OPERATIONS
+// =============================================================================
+
+// These work structurally - any type with .x and .y fields
+distance(p1, p2): Float = sqrt((p1.x - p2.x)^2 + (p1.y - p2.y)^2)
+
+translate(shape, offset) {
+// Works with any shape that has .x and .y
+shape.x = shape.x + offset.x
+shape.y = shape.y + offset.y
+shape
+}
+
+// All of these work because of structural compatibility:
+point = Point(1.0, 2.0)
+vector = Vector(3.0, 4.0)
+size = Size(5.0, 6.0)
+
+dist1 = distance(point, vector)  // OK - both have .x, .y
+dist2 = distance(vector, size)   // OK - both have .x, .y
+
+translated_point = translate(point, vector)  // OK
+translated_size = translate(size, vector)    // OK
+
+// =============================================================================
+// PATTERN MATCHING WITH PRODUCT TYPES
+// =============================================================================
+
+// Destructuring in case expressions
+handle_user_request(user: User, request) {
+case user {
+User(id, name, email, age) -> {
+log(“Processing request for user: “ + name)
+
+```
+        case request {
+            GetProfile -> serialize_user(user)
+            UpdateEmail(new_email) -> {
+                updated_user = User(id, name, Email(new_email), age)
+                save_user(updated_user)
+            }
+            DeleteAccount -> {
+                when age {
+                    < 18 -> Error("Minors cannot delete accounts")
+                    _ -> delete_user(id)
+                }
+            }
+        }
+    }
+}
+```
+
+}
+
+// Partial destructuring
+get_user_name(user) {
+case user {
+User(_, name, _, _) -> name  // Only care about name
+}
+}
+
+// Or with field access (structural)
+get_user_name_alt(user) = user.name  // Works structurally
+
+// =============================================================================
+// ADVANCED PATTERNS
+// =============================================================================
+
+// Nested product types
+type Address = Address(street: String, city: String, zip: String)
+type Customer = Customer(user: User, address: Address, orders: List[Order])
+
+// Deep pattern matching
+validate_customer(customer) {
+case customer {
+Customer(User(_, *, Email(email), age), Address(*, _, zip), orders) -> {
+when {
+age < 18 -> Error(“Must be 18 or older”)
+!valid_email(email) -> Error(“Invalid email”)
+!valid_zip(zip) -> Error(“Invalid zip code”)
+orders.length == 0 -> Warning(“No order history”)
+_ -> Ok(customer)
+}
+}
+}
+}
+
+// Generic-like behavior through structural typing
+serialize_entity(entity) {
+// Works with any type that has .name field
+“{ "name": "” + entity.name + “" }”
+}
+
+live entities = [
+User(UserId(1), “Alice”, Email(“alice@test.com”), 25),
+Product(ProductId(100), “Widget”, 19.99, “Tools”)
+]
+
+// Both User and Product have .name, so this works:
+serialized = entities.map(serialize_entity)
+
+// =============================================================================
+// CONSTRUCTION AND DESTRUCTION
+// =============================================================================
+
+// Constructor functions are just regular functions
+make_point(x: Float, y: Float): Point = Point(x, y)
+
+// Destructuring assignment
+Point(x, y) = get_mouse_position()
+User(user_id, username, _, _) = current_user
+
+// Update patterns (functional style)
+update_user_age(user, new_age) {
+case user {
+User(id, name, email, _) -> User(id, name, email, new_age)
+}
+}
+
+// Or with potential syntax sugar:
+update_user_age_alt(user, new_age) = user with { age: new_age }

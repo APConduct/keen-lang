@@ -1,6 +1,6 @@
 use crate::ast::{
-    CaseArm, Expression, Function, FunctionBody, Item, Literal, Parameter, Pattern, Program,
-    Statement, Type, TypeDef, VariableDecl, WhenArm,
+    BinaryOp, Expression, Function, FunctionBody, Item, Literal, Parameter, Program, Statement,
+    Type, TypeDef, VariableDecl,
 };
 use crate::lexer::Token;
 use chumsky::prelude::*;
@@ -97,8 +97,24 @@ fn variable_decl_parser() -> impl Parser<Token, VariableDecl, Error = Simple<Tok
 }
 
 fn type_parser() -> impl Parser<Token, Type, Error = Simple<Token>> {
-    let ident = select! { Token::Identifier(name) => name };
-    ident.map(Type::Named)
+    recursive(|type_parser| {
+        let ident = select! { Token::Identifier(name) => name };
+        let named_type = ident.map(Type::Named);
+
+        // Function type: (param_types) -> return_type
+        let function_type = type_parser
+            .clone()
+            .separated_by(just(Token::Comma))
+            .delimited_by(just(Token::LeftParen), just(Token::RightParen))
+            .then_ignore(just(Token::Arrow))
+            .then(type_parser)
+            .map(|(params, return_type)| Type::Function {
+                params,
+                return_type: Box::new(return_type),
+            });
+
+        choice((function_type, named_type))
+    })
 }
 
 fn statement_parser() -> impl Parser<Token, Statement, Error = Simple<Token>> {
@@ -109,64 +125,117 @@ fn statement_parser() -> impl Parser<Token, Statement, Error = Simple<Token>> {
 }
 
 fn expression_parser() -> impl Parser<Token, Expression, Error = Simple<Token>> {
-    let literal = choice((
-        select! { Token::Integer(n) => Literal::Integer(n) },
-        select! { Token::Float(f) => Literal::Float(f) },
-        select! { Token::String(s) => Literal::String(s) },
-        just(Token::True).to(Literal::Boolean(true)),
-        just(Token::False).to(Literal::Boolean(false)),
-    ))
-    .map(Expression::Literal);
+    recursive(|expr| {
+        let literal = choice((
+            select! { Token::Integer(n) => Literal::Integer(n) },
+            select! { Token::Float(f) => Literal::Float(f) },
+            select! { Token::String(s) => Literal::String(s) },
+            just(Token::True).to(Literal::Boolean(true)),
+            just(Token::False).to(Literal::Boolean(false)),
+        ))
+        .map(Expression::Literal);
 
-    let ident = select! { Token::Identifier(name) => Expression::Identifier(name) };
+        let ident = select! { Token::Identifier(name) => Expression::Identifier(name) };
 
-    // For now, return simple expressions without binary operations
-    choice((literal, ident))
-}
+        let atom = choice((
+            literal,
+            ident,
+            expr.clone()
+                .delimited_by(just(Token::LeftParen), just(Token::RightParen)),
+        ));
 
-fn case_arm_parser() -> impl Parser<Token, CaseArm, Error = Simple<Token>> {
-    pattern_parser()
-        .then_ignore(just(Token::Arrow))
-        .then(expression_parser())
-        .map(|(pattern, body)| CaseArm { pattern, body })
-}
+        // Function calls
+        let call = atom.then(
+            expr.clone()
+                .separated_by(just(Token::Comma))
+                .delimited_by(just(Token::LeftParen), just(Token::RightParen))
+                .repeated(),
+        );
 
-fn when_arm_parser() -> impl Parser<Token, WhenArm, Error = Simple<Token>> {
-    expression_parser()
-        .then_ignore(just(Token::Arrow))
-        .then(expression_parser())
-        .map(|(condition, body)| WhenArm { condition, body })
-}
-
-fn pattern_parser() -> impl Parser<Token, Pattern, Error = Simple<Token>> {
-    let ident = select! { Token::Identifier(name) => name };
-
-    let literal_pattern = choice((
-        select! { Token::Integer(n) => Literal::Integer(n) },
-        select! { Token::Float(f) => Literal::Float(f) },
-        select! { Token::String(s) => Literal::String(s) },
-        just(Token::True).to(Literal::Boolean(true)),
-        just(Token::False).to(Literal::Boolean(false)),
-    ))
-    .map(Pattern::Literal);
-
-    let wildcard = just(Token::Underscore).to(Pattern::Wildcard);
-
-    let identifier = ident.clone().map(Pattern::Identifier);
-
-    // Simple constructor without recursion for now
-    let constructor = ident
-        .clone()
-        .then(
-            just(Token::LeftParen)
-                .ignore_then(just(Token::RightParen))
-                .to(vec![])
-                .or_not(),
-        )
-        .map(|(name, args)| Pattern::Constructor {
-            name,
-            args: args.unwrap_or_default(),
+        let call_expr = call.map(|(base, call_lists)| {
+            call_lists
+                .into_iter()
+                .fold(base, |acc, args| Expression::Call {
+                    function: Box::new(acc),
+                    args,
+                })
         });
 
-    choice((literal_pattern, wildcard, constructor, identifier))
+        // Field access
+        let field = call_expr.then(
+            just(Token::Dot)
+                .ignore_then(select! { Token::Identifier(field) => field })
+                .repeated(),
+        );
+
+        let field_expr = field.map(|(base, fields)| {
+            fields
+                .into_iter()
+                .fold(base, |acc, field| Expression::FieldAccess {
+                    object: Box::new(acc),
+                    field,
+                })
+        });
+
+        // Binary operations with precedence
+        let factor = field_expr;
+
+        let term = factor
+            .clone()
+            .then(
+                choice((
+                    just(Token::Multiply).to(BinaryOp::Mul),
+                    just(Token::Divide).to(BinaryOp::Div),
+                ))
+                .then(factor)
+                .repeated(),
+            )
+            .foldl(|left, (op, right)| Expression::Binary {
+                left: Box::new(left),
+                op,
+                right: Box::new(right),
+            });
+
+        let sum = term
+            .clone()
+            .then(
+                choice((
+                    just(Token::Plus).to(BinaryOp::Add),
+                    just(Token::Minus).to(BinaryOp::Sub),
+                ))
+                .then(term)
+                .repeated(),
+            )
+            .foldl(|left, (op, right)| Expression::Binary {
+                left: Box::new(left),
+                op,
+                right: Box::new(right),
+            });
+
+        let comparison = sum
+            .clone()
+            .then(
+                choice((
+                    just(Token::Equal).to(BinaryOp::Equal),
+                    just(Token::NotEqual).to(BinaryOp::NotEqual),
+                    just(Token::LessEqual).to(BinaryOp::LessEqual),
+                    just(Token::GreaterEqual).to(BinaryOp::GreaterEqual),
+                    just(Token::Less).to(BinaryOp::Less),
+                    just(Token::Greater).to(BinaryOp::Greater),
+                ))
+                .then(sum)
+                .repeated(),
+            )
+            .foldl(|left, (op, right)| Expression::Binary {
+                left: Box::new(left),
+                op,
+                right: Box::new(right),
+            });
+
+        comparison
+    })
 }
+
+// Note: Case/When expressions and pattern matching are not implemented
+// due to complex parser combinator limitations that cause clone issues.
+// These could be implemented in a future version with a different parsing approach.

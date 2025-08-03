@@ -5,12 +5,6 @@ type UserId = Int
 type ProductId = distinct Int
 type Temperature = distinct Float
 
-// Structurally typed entity
-type Entity = {
-    name: String
-    age: Int
-}
-
 // Structural typing works automatically
 print_name(entity) {
     entity.name  // Works with any type having .name field
