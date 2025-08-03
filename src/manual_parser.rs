@@ -1,5 +1,6 @@
 use crate::ast::*;
-use crate::lexer::Token;
+use crate::lexer::{has_interpolation, Token};
+use logos::Logos;
 
 #[derive(Debug)]
 pub struct ParseError {
@@ -523,7 +524,13 @@ impl ManualParser {
             Some(Token::String(s)) => {
                 let s = s.clone();
                 self.advance();
-                Ok(Expression::Literal(Literal::String(s)))
+
+                // Check if this string contains interpolation syntax
+                if has_interpolation(&s) {
+                    self.parse_string_interpolation_from_string(&s)
+                } else {
+                    Ok(Expression::Literal(Literal::String(s)))
+                }
             }
             Some(Token::True) => {
                 self.advance();
@@ -827,6 +834,84 @@ pub fn extract_balanced_expression(
         message: "Unmatched opening brace".to_string(),
         position: start,
     })
+}
+
+impl ManualParser {
+    fn parse_string_interpolation_from_string(
+        &mut self,
+        content: &str,
+    ) -> Result<Expression, ParseError> {
+        let mut parts = Vec::new();
+        let mut current_literal = String::new();
+        let mut chars = content.char_indices().peekable();
+        let mut brace_count = 0;
+        let mut in_interpolation = false;
+        let mut interpolation_content = String::new();
+
+        while let Some((_, ch)) = chars.next() {
+            match ch {
+                '{' if !in_interpolation => {
+                    // Start of interpolation
+                    if !current_literal.is_empty() {
+                        parts.push(StringPart::Literal(current_literal.clone()));
+                        current_literal.clear();
+                    }
+                    in_interpolation = true;
+                    brace_count = 1;
+                }
+                '{' if in_interpolation => {
+                    brace_count += 1;
+                    interpolation_content.push(ch);
+                }
+                '}' if in_interpolation => {
+                    brace_count -= 1;
+                    if brace_count == 0 {
+                        // End of interpolation
+                        if !interpolation_content.is_empty() {
+                            // Parse the interpolation content as an expression
+                            let expr_tokens: Vec<Token> = Token::lexer(&interpolation_content)
+                                .filter_map(|result| result.ok())
+                                .collect();
+
+                            if !expr_tokens.is_empty() {
+                                // Parse the tokens into an expression
+                                let mut expr_parser = ManualParser::new(expr_tokens);
+                                match expr_parser.parse_expression() {
+                                    Ok(expr) => {
+                                        parts.push(StringPart::Expression(Box::new(expr)));
+                                    }
+                                    Err(_) => {
+                                        // If parsing fails, treat as literal
+                                        parts.push(StringPart::Literal(format!(
+                                            "{{{}}}",
+                                            interpolation_content
+                                        )));
+                                    }
+                                }
+                            }
+                            interpolation_content.clear();
+                        }
+                        in_interpolation = false;
+                    } else {
+                        interpolation_content.push(ch);
+                    }
+                }
+                _ if in_interpolation => {
+                    interpolation_content.push(ch);
+                }
+                _ => {
+                    current_literal.push(ch);
+                }
+            }
+        }
+
+        // Add any remaining literal content
+        if !current_literal.is_empty() {
+            parts.push(StringPart::Literal(current_literal));
+        }
+
+        Ok(Expression::StringInterpolation { parts })
+    }
 }
 
 #[cfg(test)]

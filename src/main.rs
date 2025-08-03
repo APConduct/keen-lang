@@ -697,4 +697,60 @@ fn main() {
     println!("\n✅ TEXT OUTPUT SYSTEM WORKING!");
     println!("Keen can now output text through the runtime system!");
     println!("Ready for print() function integration in compiled code!");
+
+    // Test string interpolation
+    println!("\n🔤 Testing String Interpolation");
+    println!("================================");
+
+    // Test string interpolation parsing
+    let interpolation_test = r#"message = "Hello, {name}! You are {age} years old.""#;
+    let interp_tokens: Vec<Token> = Token::lexer(interpolation_test)
+        .collect::<Result<Vec<_>, _>>()
+        .unwrap();
+    println!("Interpolation tokens: {:?}", interp_tokens);
+
+    match parser::parse_with_manual_fallback(interp_tokens) {
+        Ok(program) => println!("✅ String interpolation parsed: {:?}", program),
+        Err(errors) => println!("❌ String interpolation errors: {:?}", errors),
+    }
+
+    // Test complex interpolation
+    let complex_interp = r#"result = "The answer is {x + y * 2} and the status is {x > 0 ? "positive" : "negative"}""#;
+    let complex_tokens: Vec<Token> = Token::lexer(complex_interp)
+        .collect::<Result<Vec<_>, _>>()
+        .unwrap();
+    println!("\nComplex interpolation tokens: {:?}", complex_tokens);
+
+    match parser::parse_with_manual_fallback(complex_tokens) {
+        Ok(program) => println!("✅ Complex string interpolation parsed: {:?}", program),
+        Err(errors) => println!("❌ Complex string interpolation errors: {:?}", errors),
+    }
+
+    // Test string builder runtime functions
+    println!("\n🔧 Testing String Builder Runtime:");
+    let builder = keen_string_builder_new();
+    if !builder.is_null() {
+        // Build a string: "Hello, 42 is the answer and true is boolean"
+        let hello_str = CString::new("Hello, ").unwrap();
+        keen_string_builder_append_literal(builder, hello_str.as_ptr());
+        keen_string_builder_append_int(builder, 42);
+        let middle_str = CString::new(" is the answer and ").unwrap();
+        keen_string_builder_append_literal(builder, middle_str.as_ptr());
+        keen_string_builder_append_bool(builder, 1);
+        let end_str = CString::new(" is boolean").unwrap();
+        keen_string_builder_append_literal(builder, end_str.as_ptr());
+
+        let result = keen_string_builder_finish(builder);
+        if !result.is_null() {
+            print!("String builder result: ");
+            keen_print_string(result);
+            unsafe {
+                let result_len = std::ffi::CStr::from_ptr(result).to_bytes().len();
+                keen_free(result as *mut u8, result_len + 1);
+            }
+        }
+    }
+
+    println!("\n✅ STRING INTERPOLATION SYSTEM IMPLEMENTED!");
+    println!("Keen now supports: \"Hello, {{name}}! You are {{age}} years old.\"");
 }

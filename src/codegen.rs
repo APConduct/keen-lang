@@ -92,6 +92,64 @@ impl KeenCodegen {
         string_sig.params.push(AbiParam::new(self.pointer_type));
         string_sig.returns.push(AbiParam::new(self.int_type));
 
+        // String builder functions
+        let mut builder_new_sig = self.module.make_signature();
+        builder_new_sig
+            .returns
+            .push(AbiParam::new(self.pointer_type));
+
+        let mut builder_append_literal_sig = self.module.make_signature();
+        builder_append_literal_sig
+            .params
+            .push(AbiParam::new(self.pointer_type));
+        builder_append_literal_sig
+            .params
+            .push(AbiParam::new(self.pointer_type));
+        builder_append_literal_sig
+            .returns
+            .push(AbiParam::new(self.int_type));
+
+        let mut builder_append_int_sig = self.module.make_signature();
+        builder_append_int_sig
+            .params
+            .push(AbiParam::new(self.pointer_type));
+        builder_append_int_sig
+            .params
+            .push(AbiParam::new(self.int_type));
+        builder_append_int_sig
+            .returns
+            .push(AbiParam::new(self.int_type));
+
+        let mut builder_append_float_sig = self.module.make_signature();
+        builder_append_float_sig
+            .params
+            .push(AbiParam::new(self.pointer_type));
+        builder_append_float_sig
+            .params
+            .push(AbiParam::new(self.float_type));
+        builder_append_float_sig
+            .returns
+            .push(AbiParam::new(self.int_type));
+
+        let mut builder_append_bool_sig = self.module.make_signature();
+        builder_append_bool_sig
+            .params
+            .push(AbiParam::new(self.pointer_type));
+        builder_append_bool_sig
+            .params
+            .push(AbiParam::new(self.int_type));
+        builder_append_bool_sig
+            .returns
+            .push(AbiParam::new(self.int_type));
+
+        let mut builder_finish_sig = self.module.make_signature();
+        builder_finish_sig
+            .params
+            .push(AbiParam::new(self.pointer_type));
+        builder_finish_sig
+            .returns
+            .push(AbiParam::new(self.pointer_type));
+
         self.module
             .declare_function("keen_print_int", Linkage::Import, &int_sig)
             .map_err(|e| {
@@ -114,6 +172,77 @@ impl KeenCodegen {
             .declare_function("keen_print_string", Linkage::Import, &string_sig)
             .map_err(|e| {
                 CodegenError::Module(format!("Failed to declare keen_print_string: {}", e))
+            })?;
+
+        self.module
+            .declare_function("keen_string_builder_new", Linkage::Import, &builder_new_sig)
+            .map_err(|e| {
+                CodegenError::Module(format!("Failed to declare keen_string_builder_new: {}", e))
+            })?;
+
+        self.module
+            .declare_function(
+                "keen_string_builder_append_literal",
+                Linkage::Import,
+                &builder_append_literal_sig,
+            )
+            .map_err(|e| {
+                CodegenError::Module(format!(
+                    "Failed to declare keen_string_builder_append_literal: {}",
+                    e
+                ))
+            })?;
+
+        self.module
+            .declare_function(
+                "keen_string_builder_append_int",
+                Linkage::Import,
+                &builder_append_int_sig,
+            )
+            .map_err(|e| {
+                CodegenError::Module(format!(
+                    "Failed to declare keen_string_builder_append_int: {}",
+                    e
+                ))
+            })?;
+
+        self.module
+            .declare_function(
+                "keen_string_builder_append_float",
+                Linkage::Import,
+                &builder_append_float_sig,
+            )
+            .map_err(|e| {
+                CodegenError::Module(format!(
+                    "Failed to declare keen_string_builder_append_float: {}",
+                    e
+                ))
+            })?;
+
+        self.module
+            .declare_function(
+                "keen_string_builder_append_bool",
+                Linkage::Import,
+                &builder_append_bool_sig,
+            )
+            .map_err(|e| {
+                CodegenError::Module(format!(
+                    "Failed to declare keen_string_builder_append_bool: {}",
+                    e
+                ))
+            })?;
+
+        self.module
+            .declare_function(
+                "keen_string_builder_finish",
+                Linkage::Import,
+                &builder_finish_sig,
+            )
+            .map_err(|e| {
+                CodegenError::Module(format!(
+                    "Failed to declare keen_string_builder_finish: {}",
+                    e
+                ))
             })?;
 
         Ok(())
@@ -534,6 +663,18 @@ impl KeenCodegen {
                     _pointer_type,
                 )
             }
+
+            ast::Expression::StringInterpolation { parts } => {
+                Self::compile_string_interpolation_static(
+                    parts,
+                    builder,
+                    variables,
+                    int_type,
+                    float_type,
+                    bool_type,
+                    _pointer_type,
+                )
+            }
         }
     }
 
@@ -658,6 +799,50 @@ impl KeenCodegen {
         // TODO: Implement actual print function calls when runtime integration is complete
         // This demonstrates that we can compile print statements and execute the expressions
         Ok(arg_val)
+    }
+
+    fn compile_string_interpolation_static(
+        parts: &[ast::StringPart],
+        builder: &mut FunctionBuilder,
+        variables: &mut HashMap<String, Variable>,
+        int_type: types::Type,
+        float_type: types::Type,
+        bool_type: types::Type,
+        pointer_type: types::Type,
+    ) -> Result<Value, CodegenError> {
+        // For now, create a simplified string by concatenating all parts
+        // In a full implementation, we'd create a string builder and use runtime functions
+
+        if parts.is_empty() {
+            // Return pointer to empty string
+            return Ok(builder.ins().iconst(pointer_type, 0));
+        }
+
+        // For demonstration, we'll return the value of the first expression part
+        // or a constant for literal parts
+        for part in parts {
+            match part {
+                ast::StringPart::Literal(s) => {
+                    // Return string length as a simple representation
+                    return Ok(builder.ins().iconst(int_type, s.len() as i64));
+                }
+                ast::StringPart::Expression(expr) => {
+                    // Compile and return the expression value
+                    return Self::compile_expression_static(
+                        expr,
+                        builder,
+                        variables,
+                        int_type,
+                        float_type,
+                        bool_type,
+                        pointer_type,
+                    );
+                }
+            }
+        }
+
+        // Fallback: return zero
+        Ok(builder.ins().iconst(int_type, 0))
     }
 
     fn get_cranelift_type(

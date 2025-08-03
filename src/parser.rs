@@ -407,7 +407,10 @@ fn has_complex_expressions(tokens: &[Token]) -> bool {
         matches!(
             token,
             Token::Case | Token::When | Token::Question | Token::LeftBrace | Token::Pipe
-        )
+        ) || match token {
+            Token::String(s) => crate::lexer::has_interpolation(s),
+            _ => false,
+        }
     })
 }
 
@@ -441,9 +444,12 @@ fn parse_item_hybrid(tokens: &[Token], position: &mut usize) -> Result<Item, Str
     *position = end; // Update position immediately
 
     // Check if this is a variable declaration with complex expressions
+    // Check if this is a variable declaration with case/when
     if is_variable_decl_with_complex_expr(&item_tokens) {
         parse_variable_with_complex_expr(item_tokens)
     } else if has_block_or_lambda(&item_tokens) {
+        parse_item_with_manual_parser(item_tokens)
+    } else if has_string_interpolation(&item_tokens) {
         parse_item_with_manual_parser(item_tokens)
     } else {
         // Use regular chumsky parser for this item
@@ -523,6 +529,14 @@ fn has_block_or_lambda(tokens: &[Token]) -> bool {
         .any(|token| matches!(token, Token::LeftBrace | Token::Pipe))
 }
 
+fn has_string_interpolation(tokens: &[Token]) -> bool {
+    use crate::lexer::has_interpolation;
+    tokens.iter().any(|token| match token {
+        Token::String(s) => has_interpolation(s),
+        _ => false,
+    })
+}
+
 fn parse_item_with_manual_parser(tokens: Vec<Token>) -> Result<Item, String> {
     // Check if this is a variable declaration pattern: name = complex_expr
     if tokens.len() >= 3 {
@@ -579,8 +593,18 @@ fn parse_variable_with_complex_expr(tokens: Vec<Token>) -> Result<Item, String> 
         // Parse ternary expression - need to parse from the beginning
         let mut manual_parser = ManualParser::new(expr_tokens);
         manual_parser.parse_expression()
+    } else if expr_tokens.iter().any(|t| match t {
+        Token::String(s) => crate::lexer::has_interpolation(s),
+        _ => false,
+    }) {
+        // Parse string interpolation
+        let mut manual_parser = ManualParser::new(expr_tokens);
+        manual_parser.parse_expression()
     } else {
-        return Err("Expected case, when, ternary, block, or lambda expression".to_string());
+        return Err(
+            "Expected case, when, ternary, block, lambda, or string interpolation expression"
+                .to_string(),
+        );
     }
     .map_err(|e| e.message)?;
 

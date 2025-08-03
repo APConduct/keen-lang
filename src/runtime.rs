@@ -178,6 +178,144 @@ pub extern "C" fn keen_runtime_cleanup() -> i32 {
     0
 }
 
+/// String builder for interpolation
+#[repr(C)]
+pub struct StringBuilder {
+    parts: Vec<String>,
+    capacity: usize,
+}
+
+/// Create a new string builder
+#[no_mangle]
+pub extern "C" fn keen_string_builder_new() -> *mut StringBuilder {
+    let builder = Box::new(StringBuilder {
+        parts: Vec::new(),
+        capacity: 0,
+    });
+    Box::into_raw(builder)
+}
+
+/// Append a literal string to the builder
+#[no_mangle]
+pub extern "C" fn keen_string_builder_append_literal(
+    builder: *mut StringBuilder,
+    literal: *const c_char,
+) -> i32 {
+    if builder.is_null() || literal.is_null() {
+        return -1;
+    }
+
+    unsafe {
+        let builder_ref = &mut *builder;
+        match CStr::from_ptr(literal).to_str() {
+            Ok(s) => {
+                builder_ref.parts.push(s.to_string());
+                builder_ref.capacity += s.len();
+                0
+            }
+            Err(_) => -1,
+        }
+    }
+}
+
+/// Append an integer value to the builder
+#[no_mangle]
+pub extern "C" fn keen_string_builder_append_int(builder: *mut StringBuilder, value: i64) -> i32 {
+    if builder.is_null() {
+        return -1;
+    }
+
+    unsafe {
+        let builder_ref = &mut *builder;
+        let s = value.to_string();
+        builder_ref.capacity += s.len();
+        builder_ref.parts.push(s);
+        0
+    }
+}
+
+/// Append a float value to the builder
+#[no_mangle]
+pub extern "C" fn keen_string_builder_append_float(builder: *mut StringBuilder, value: f64) -> i32 {
+    if builder.is_null() {
+        return -1;
+    }
+
+    unsafe {
+        let builder_ref = &mut *builder;
+        let s = value.to_string();
+        builder_ref.capacity += s.len();
+        builder_ref.parts.push(s);
+        0
+    }
+}
+
+/// Append a boolean value to the builder
+#[no_mangle]
+pub extern "C" fn keen_string_builder_append_bool(builder: *mut StringBuilder, value: i32) -> i32 {
+    if builder.is_null() {
+        return -1;
+    }
+
+    unsafe {
+        let builder_ref = &mut *builder;
+        let s = if value != 0 { "true" } else { "false" };
+        builder_ref.capacity += s.len();
+        builder_ref.parts.push(s.to_string());
+        0
+    }
+}
+
+/// Append a string value to the builder
+#[no_mangle]
+pub extern "C" fn keen_string_builder_append_string(
+    builder: *mut StringBuilder,
+    value: *const c_char,
+) -> i32 {
+    if builder.is_null() || value.is_null() {
+        return -1;
+    }
+
+    unsafe {
+        let builder_ref = &mut *builder;
+        match CStr::from_ptr(value).to_str() {
+            Ok(s) => {
+                builder_ref.parts.push(s.to_string());
+                builder_ref.capacity += s.len();
+                0
+            }
+            Err(_) => -1,
+        }
+    }
+}
+
+/// Finish building and return the final string
+#[no_mangle]
+pub extern "C" fn keen_string_builder_finish(builder: *mut StringBuilder) -> *mut c_char {
+    if builder.is_null() {
+        return std::ptr::null_mut();
+    }
+
+    unsafe {
+        let builder_box = Box::from_raw(builder);
+        let final_string = builder_box.parts.join("");
+        keen_create_string(final_string.as_ptr(), final_string.len())
+    }
+}
+
+/// Destroy a string builder without finishing (cleanup)
+#[no_mangle]
+pub extern "C" fn keen_string_builder_destroy(builder: *mut StringBuilder) -> i32 {
+    if builder.is_null() {
+        return -1;
+    }
+
+    unsafe {
+        let _ = Box::from_raw(builder);
+        0
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -194,6 +332,38 @@ mod tests {
         // Test boolean printing
         assert_eq!(keen_print_bool(1), 0);
         assert_eq!(keen_print_bool(0), 0);
+    }
+
+    #[test]
+    fn test_string_builder() {
+        // Create a new string builder
+        let builder = keen_string_builder_new();
+        assert!(!builder.is_null());
+
+        // Append various types
+        let literal = CString::new("Hello, ").unwrap();
+        assert_eq!(
+            keen_string_builder_append_literal(builder, literal.as_ptr()),
+            0
+        );
+        assert_eq!(keen_string_builder_append_int(builder, 42), 0);
+        assert_eq!(
+            keen_string_builder_append_literal(
+                builder,
+                CString::new(" is the answer").unwrap().as_ptr()
+            ),
+            0
+        );
+
+        // Finish and get result
+        let result = keen_string_builder_finish(builder);
+        assert!(!result.is_null());
+
+        unsafe {
+            let final_str = CStr::from_ptr(result).to_str().unwrap();
+            assert_eq!(final_str, "Hello, 42 is the answer");
+            keen_free(result as *mut u8, final_str.len() + 1);
+        }
     }
 
     #[test]

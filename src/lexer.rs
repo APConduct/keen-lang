@@ -131,3 +131,8 @@ impl Hash for Token {
 }
 
 impl Eq for Token {}
+
+/// Check if a string contains interpolation syntax
+pub fn has_interpolation(s: &str) -> bool {
+    s.contains('{') && s.contains('}')
+}

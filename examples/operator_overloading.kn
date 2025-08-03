@@ -5,7 +5,7 @@ type Person = distinct {
 }
 
 // Then overload the operator
-teach infix("*")(self: Person, other: Person): Person { // Potential syntax for infix operator overloading
+teach.infix["*"] (self: Person, other: Person): Person { // Potential syntax for infix operator overloading (alternatives to 'teach.infix["*"]' could be '[infix("*")]' or 'teach("*").infix')
   // Some behavior
   Person(age: self.age * other.age, name: this.name * other.name.len())
 }

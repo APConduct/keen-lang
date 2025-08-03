@@ -156,12 +156,21 @@ pub enum Expression {
         pattern: Pattern,
         value: Box<Expression>,
     },
+    StringInterpolation {
+        parts: Vec<StringPart>,
+    },
 }
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct ConstructorArg {
     pub name: Option<String>,
     pub value: Expression,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum StringPart {
+    Literal(String),
+    Expression(Box<Expression>),
 }
 
 #[derive(Debug, Clone, PartialEq)]
