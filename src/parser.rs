@@ -254,7 +254,7 @@ pub fn parse_with_manual_fallback(tokens: Vec<Token>) -> Result<Program, Vec<Str
 fn has_complex_expressions(tokens: &[Token]) -> bool {
     tokens
         .iter()
-        .any(|token| matches!(token, Token::Case | Token::When))
+        .any(|token| matches!(token, Token::Case | Token::When | Token::Question))
 }
 
 fn parse_hybrid(tokens: Vec<Token>) -> Result<Program, Vec<String>> {
@@ -352,10 +352,10 @@ fn is_variable_decl_with_complex_expr(tokens: &[Token]) -> bool {
     // Check if this is a variable declaration (identifier = ...)
     if tokens.len() >= 3 {
         if let (Some(Token::Identifier(_)), Some(Token::Assign)) = (tokens.get(0), tokens.get(1)) {
-            // Check if the expression contains case or when
+            // Check if the expression contains case, when, or ternary
             return tokens[2..]
                 .iter()
-                .any(|t| matches!(t, Token::Case | Token::When));
+                .any(|t| matches!(t, Token::Case | Token::When | Token::Question));
         }
     }
     false
@@ -384,8 +384,12 @@ fn parse_variable_with_complex_expr(tokens: Vec<Token>) -> Result<Item, String> 
     } else if matches!(expr_tokens.first(), Some(Token::When)) {
         let mut manual_parser = ManualParser::new(expr_tokens);
         manual_parser.parse_when_expression()
+    } else if expr_tokens.iter().any(|t| matches!(t, Token::Question)) {
+        // Parse ternary expression - need to parse from the beginning
+        let mut manual_parser = ManualParser::new(expr_tokens);
+        manual_parser.parse_expression()
     } else {
-        return Err("Expected case or when expression".to_string());
+        return Err("Expected case, when, or ternary expression".to_string());
     }
     .map_err(|e| e.message)?;
 

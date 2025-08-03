@@ -138,6 +138,33 @@ fn main() {
         Err(errors) => println!("❌ Hybrid parser errors: {:?}", errors),
     }
 
+    // Test ternary operator
+    println!("\n=== Testing Ternary Operator ===");
+    let ternary_tokens = vec![
+        Token::Identifier("condition".to_string()),
+        Token::Question,
+        Token::String("yes".to_string()),
+        Token::Colon,
+        Token::String("no".to_string()),
+    ];
+
+    let mut ternary_parser = ManualParser::new(ternary_tokens);
+    match ternary_parser.parse_expression() {
+        Ok(expr) => println!("✅ Ternary expression parsed: {:?}", expr),
+        Err(e) => println!("❌ Ternary parser error: {}", e),
+    }
+
+    // Test ternary in variable declaration
+    let ternary_var = r#"result = x > 0 ? "positive" : "non-positive""#;
+    let ternary_var_tokens: Vec<Token> = Token::lexer(ternary_var)
+        .collect::<Result<Vec<_>, _>>()
+        .unwrap();
+
+    match parser::parse_with_manual_fallback(ternary_var_tokens) {
+        Ok(program) => println!("✅ Ternary in variable parsed: {:?}", program),
+        Err(errors) => println!("❌ Ternary variable errors: {:?}", errors),
+    }
+
     // Test constructor patterns
     let constructor_tokens = vec![
         Token::Case,
@@ -177,6 +204,7 @@ fn main() {
     println!("✅ Constructor patterns: Some(x), None(), User(name, age)");
     println!("✅ Wildcard patterns");
     println!("✅ Pattern matching with literals and identifiers");
-    println!("🚧 Hybrid parser integration (needs debugging)");
-    println!("🚧 When expressions (manual parser ready)");
+    println!("✅ Ternary operators: condition ? then : else");
+    println!("✅ Hybrid parser integration (working!)");
+    println!("✅ When expressions (manual parser ready)");
 }

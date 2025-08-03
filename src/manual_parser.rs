@@ -37,7 +37,7 @@ impl ManualParser {
         self.expect_token(&Token::Case, "Expected 'case'")?;
 
         // Parse the expression to match against
-        let expr = self.parse_simple_expression()?;
+        let expr = self.parse_expression()?;
 
         // Expect '{'
         self.expect_token(&Token::LeftBrace, "Expected '{' after case expression")?;
@@ -69,7 +69,7 @@ impl ManualParser {
         self.expect_token(&Token::When, "Expected 'when'")?;
 
         // Parse the expression to evaluate
-        let expr = self.parse_simple_expression()?;
+        let expr = self.parse_expression()?;
 
         // Expect '{'
         self.expect_token(&Token::LeftBrace, "Expected '{' after when expression")?;
@@ -124,7 +124,7 @@ impl ManualParser {
 
         self.expect_token(&Token::Arrow, "Expected '->' after pattern")?;
 
-        let body = self.parse_simple_expression()?;
+        let body = self.parse_expression()?;
 
         Ok(CaseArm { pattern, body })
     }
@@ -134,7 +134,7 @@ impl ManualParser {
 
         self.expect_token(&Token::Arrow, "Expected '->' after when condition")?;
 
-        let body = self.parse_simple_expression()?;
+        let body = self.parse_expression()?;
 
         Ok(WhenArm { condition, body })
     }
@@ -209,9 +209,83 @@ impl ManualParser {
 
     fn parse_condition_expression(&mut self) -> Result<Expression, ParseError> {
         // Parse a simple comparison expression for when conditions
-        let left = self.parse_simple_expression()?;
+        let left = self.parse_expression()?;
 
         // Check for comparison operators
+        match self.current_token() {
+            Some(Token::Equal) => {
+                self.advance();
+                let right = self.parse_expression()?;
+                Ok(Expression::Binary {
+                    left: Box::new(left),
+                    op: BinaryOp::Equal,
+                    right: Box::new(right),
+                })
+            }
+            Some(Token::NotEqual) => {
+                self.advance();
+                let right = self.parse_expression()?;
+                Ok(Expression::Binary {
+                    left: Box::new(left),
+                    op: BinaryOp::NotEqual,
+                    right: Box::new(right),
+                })
+            }
+            Some(Token::Less) => {
+                self.advance();
+                let right = self.parse_expression()?;
+                Ok(Expression::Binary {
+                    left: Box::new(left),
+                    op: BinaryOp::Less,
+                    right: Box::new(right),
+                })
+            }
+            Some(Token::Greater) => {
+                self.advance();
+                let right = self.parse_expression()?;
+                Ok(Expression::Binary {
+                    left: Box::new(left),
+                    op: BinaryOp::Greater,
+                    right: Box::new(right),
+                })
+            }
+            Some(Token::LessEqual) => {
+                self.advance();
+                let right = self.parse_expression()?;
+                Ok(Expression::Binary {
+                    left: Box::new(left),
+                    op: BinaryOp::LessEqual,
+                    right: Box::new(right),
+                })
+            }
+            Some(Token::GreaterEqual) => {
+                self.advance();
+                let right = self.parse_expression()?;
+                Ok(Expression::Binary {
+                    left: Box::new(left),
+                    op: BinaryOp::GreaterEqual,
+                    right: Box::new(right),
+                })
+            }
+            _ => Ok(left), // No comparison operator, return as-is
+        }
+    }
+
+    pub fn parse_expression(&mut self) -> Result<Expression, ParseError> {
+        let left = self.parse_binary_expression()?;
+
+        // Check for ternary operator
+        if self.check_token(&Token::Question) {
+            self.parse_ternary_expression(left)
+        } else {
+            Ok(left)
+        }
+    }
+
+    fn parse_binary_expression(&mut self) -> Result<Expression, ParseError> {
+        let left = self.parse_simple_expression()?;
+
+        // Check for binary operators
         match self.current_token() {
             Some(Token::Equal) => {
                 self.advance();
@@ -267,7 +341,43 @@ impl ManualParser {
                     right: Box::new(right),
                 })
             }
-            _ => Ok(left), // No comparison operator, return as-is
+            Some(Token::Plus) => {
+                self.advance();
+                let right = self.parse_simple_expression()?;
+                Ok(Expression::Binary {
+                    left: Box::new(left),
+                    op: BinaryOp::Add,
+                    right: Box::new(right),
+                })
+            }
+            Some(Token::Minus) => {
+                self.advance();
+                let right = self.parse_simple_expression()?;
+                Ok(Expression::Binary {
+                    left: Box::new(left),
+                    op: BinaryOp::Sub,
+                    right: Box::new(right),
+                })
+            }
+            Some(Token::Multiply) => {
+                self.advance();
+                let right = self.parse_simple_expression()?;
+                Ok(Expression::Binary {
+                    left: Box::new(left),
+                    op: BinaryOp::Mul,
+                    right: Box::new(right),
+                })
+            }
+            Some(Token::Divide) => {
+                self.advance();
+                let right = self.parse_simple_expression()?;
+                Ok(Expression::Binary {
+                    left: Box::new(left),
+                    op: BinaryOp::Div,
+                    right: Box::new(right),
+                })
+            }
+            _ => Ok(left), // No binary operator, return as-is
         }
     }
 
@@ -306,7 +416,7 @@ impl ManualParser {
 
                     let mut args = Vec::new();
                     while !self.check_token(&Token::RightParen) && !self.is_at_end() {
-                        args.push(self.parse_simple_expression()?);
+                        args.push(self.parse_expression()?);
 
                         if self.check_token(&Token::Comma) {
                             self.advance();
@@ -330,7 +440,7 @@ impl ManualParser {
             }
             Some(Token::LeftParen) => {
                 self.advance(); // consume '('
-                let expr = self.parse_simple_expression()?;
+                let expr = self.parse_expression()?;
                 self.expect_token(
                     &Token::RightParen,
                     "Expected ')' after parenthesized expression",
@@ -535,6 +645,63 @@ mod tests {
                 assert_eq!(arms.len(), 2);
             }
             _ => panic!("Expected when expression"),
+        }
+    }
+
+    #[test]
+    fn test_ternary_expression() {
+        let tokens = vec![
+            Token::Identifier("condition".to_string()),
+            Token::Question,
+            Token::String("yes".to_string()),
+            Token::Colon,
+            Token::String("no".to_string()),
+        ];
+
+        let mut parser = ManualParser::new(tokens);
+        let result = parser.parse_expression().unwrap();
+
+        match result {
+            Expression::Ternary {
+                condition,
+                then_expr,
+                else_expr,
+            } => {
+                assert!(matches!(condition.as_ref(), Expression::Identifier(_)));
+                assert!(matches!(
+                    then_expr.as_ref(),
+                    Expression::Literal(Literal::String(_))
+                ));
+                assert!(matches!(
+                    else_expr.as_ref(),
+                    Expression::Literal(Literal::String(_))
+                ));
+            }
+            _ => panic!("Expected ternary expression"),
+        }
+    }
+
+    #[test]
+    fn test_nested_ternary() {
+        let tokens = vec![
+            Token::Identifier("x".to_string()),
+            Token::Greater,
+            Token::Integer(0),
+            Token::Question,
+            Token::Identifier("x".to_string()),
+            Token::Colon,
+            Token::Integer(0),
+        ];
+
+        let mut parser = ManualParser::new(tokens);
+        let result = parser.parse_expression().unwrap();
+
+        match result {
+            Expression::Ternary { condition, .. } => {
+                // The condition should be a binary expression (x > 0)
+                assert!(matches!(condition.as_ref(), Expression::Binary { .. }));
+            }
+            _ => panic!("Expected ternary expression with binary condition"),
         }
     }
 }
