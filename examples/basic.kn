@@ -1,6 +1,8 @@
-// Function with explicit types
+// Function with explicit types and string interpolation
 add(a: Int, b: Int): Int {
-    a + b  // Implicit return
+    result = a + b
+    print("Adding {a} + {b} = {result}")
+    result  // Implicit return
 }
 
 // Single expression function
@@ -15,4 +17,29 @@ pi = 3.14159
 name = "Alice"
 
 // Variable with explicit type
-user_id: UserId = UserId(12345)
+user_id: UserId = UserId(id: 12345)
+
+// String interpolation examples
+greeting = "Hello, {name}!"
+calculation = "The square of 5 is {square(5)}"
+status = "User {user_id} is currently {some_val ? "active" : "inactive"}"
+
+// Chaining examples
+processed_name = name
+    .trim()
+    .to_lowercase()
+    .replace(" ", "_")
+
+// Pipeline example
+numbers = [1, 2, 3, 4, 5]
+result = numbers
+    |> filter(|x| x > 2)
+    |> map(square)
+    |> reduce(add, 0)
+
+// Method chaining with string interpolation
+user_info = User(id: user_id, name: name, active: true)
+    .validate()
+    .normalize()
+    .save()
+    .map(|u| "Saved user: {u.name} with ID {u.id}")

@@ -10,7 +10,7 @@ type Email = Email(address: String)
 // Complex product types
 type User = User(id: UserId, name: String, email: Email, age: Int)
 type Product = Product(id: ProductId, name: String, price: Float, category: String)
-type Order = Order(id: Int, user: UserId, items: List[ProductId], total: Float)
+type Order = Order(id: Int, user: UserId, items: List, total: Float)
 
 // Geometric types (same structure, different meaning)
 type Point = Point(x: Float, y: Float)
@@ -29,46 +29,93 @@ type Option = Some(value: Any) | None
 
 // These functions only accept their specific nominal types
 create_user(name: String, email_str: String, age: Int): Result {
-    email = Email(email_str)
+    email = Email(address: email_str)
     id = generate_user_id()
 
-    when age {
+    validation_result = when age {
         < 0 -> Error("Age cannot be negative")
         > 150 -> Error("Age seems unrealistic")
-        _ -> Ok(User(id, name, email, age))
+        _ -> Ok(age)
+    }
+
+    case validation_result {
+        Ok(_) -> {
+            user = User(id: id, name: name, email: email, age: age)
+            print("Created user: {name} with ID {id}")
+            Ok(user)
+        }
+        Error(msg) -> Error("User creation failed: {msg}")
     }
 }
 
 process_order(order: Order): Result {
-    case fetch_user(order.user) {
+    user_result = fetch_user(order.user)
+
+    case user_result {
         Some(user) -> {
-            total = calculate_total(order.items)
-            charge_user(user, total)
+            total = order.items
+                .map(get_item_price)
+                .reduce(add, 0.0)
+
+            payment_result = user
+                .validate_payment_method()
+                .charge(total)
+
+            case payment_result {
+                Ok(transaction) -> {
+                    print("Processed order for {user.name}, total: ${total}")
+                    Ok(transaction)
+                }
+                Error(msg) -> Error("Payment failed: {msg}")
+            }
         }
-        None -> Error(“User not found”)
+        None -> Error("User {order.user} not found")
     }
 }
 
 // Nominal types prevent mixing up IDs
-transfer_money(from: UserId, to: UserId, amount: Float) {
-    // …
+transfer_money(from: UserId, to: UserId, amount: Float): Result {
+    from_user = fetch_user(from)
+    to_user = fetch_user(to)
+
+    case (from_user, to_user) {
+        (Some(sender), Some(receiver)) -> {
+            transaction = sender
+                .validate_balance(amount)
+                .and_then(|_| sender.debit(amount))
+                .and_then(|_| receiver.credit(amount))
+                .map(|_| print("Transferred ${amount} from {sender.name} to {receiver.name}"))
+
+            transaction
+        }
+        _ -> Error("One or both users not found")
+    }
 }
 
 // This would be a compile error:
-// transfer_money(ProductId(123), UserId(456), 100.0)  // Error!
+// transfer_money(ProductId(id: 123), UserId(id: 456), 100.0)  // Error!
 
 // =============================================================================
 // STRUCTURAL OPERATIONS
 // =============================================================================
 
 // These work structurally - any type with .x and .y fields
-distance(p1, p2): Float = sqrt((p1.x - p2.x)^2 + (p1.y - p2.y)^2)
+distance(p1, p2): Float = {
+    dx = p1.x - p2.x
+    dy = p1.y - p2.y
+    result = sqrt(dx * dx + dy * dy)
+    print("Distance between ({p1.x}, {p1.y}) and ({p2.x}, {p2.y}) is {result}")
+    result
+}
 
 translate(shape, offset) {
     // Works with any shape that has .x and .y
-    shape.x = shape.x + offset.x
-    shape.y = shape.y + offset.y
-    shape
+    translated = shape
+        .update_x(shape.x + offset.x)
+        .update_y(shape.y + offset.y)
+
+    print("Translated shape by offset ({offset.x}, {offset.y})")
+    translated
 }
 
 // All of these work because of structural compatibility:
@@ -79,28 +126,46 @@ size = Size(5.0, 6.0)
 dist1 = distance(point, vector)  // OK - both have .x, .y
 dist2 = distance(vector, size)   // OK - both have .x, .y
 
-translated_point = translate(point, vector)  // OK
-translated_size = translate(size, vector)    // OK
+translated_point = point |> translate(_, vector)  // OK
+translated_size = size |> translate(_, vector)    // OK
 
 // =============================================================================
 // PATTERN MATCHING WITH PRODUCT TYPES
 // =============================================================================
 
-// Destructuring in case expressions
-handle_user_request(user: User, request) {
+// Destructuring in case expressions with string interpolation
+handle_user_request(user: User, request): Result {
     case user {
         User(id, name, email, age) -> {
-            log(“Processing request for user: “ + name)
+            print("Processing request for user: {name}")
+
             case request {
-                GetProfile -> serialize_user(user)
+                GetProfile -> user
+                    .serialize()
+                    .add_timestamp()
+                    .format_response()
+
                 UpdateEmail(new_email) -> {
-                    updated_user = User(id, name, Email(new_email), age)
-                    save_user(updated_user)
+                    updated_user = User(
+                        id: id,
+                        name: name,
+                        email: Email(address: new_email),
+                        age: age
+                    )
+
+                    updated_user
+                        .validate()
+                        .save()
+                        .map(|u| "Email updated for {u.name}")
                 }
+
                 DeleteAccount -> {
                     when age {
                         < 18 -> Error("Minors cannot delete accounts")
-                        _ -> delete_user(id)
+                        _ -> user
+                            .deactivate()
+                            .anonymize()
+                            .log_deletion("Account deleted for {name}")
                     }
                 }
             }
@@ -109,14 +174,19 @@ handle_user_request(user: User, request) {
 }
 
 // Partial destructuring
-get_user_name(user) {
+get_user_name(user: User): String {
     case user {
-        User(_, name, _, _) -> name  // Only care about name
+        User(_, name, _, _) -> {
+            print("Extracted name: {name}")
+            name  // Only care about name
+        }
     }
 }
 
-// Or with field access (structural)
-get_user_name_alt(user) = user.name  // Works structurally
+// Or with field access (structural) - enhanced with chaining
+get_user_name_alt(user) = user.name
+    .trim()
+    .to_title_case()  // Works structurally with chaining
 
 // =============================================================================
 // ADVANCED PATTERNS
@@ -126,52 +196,88 @@ get_user_name_alt(user) = user.name  // Works structurally
 type Address = Address(street: String, city: String, zip: String)
 type Customer = Customer(user: User, address: Address, orders: List[Order])
 
-// Deep pattern matching
-validate_customer(customer) {
+// Deep pattern matching with string interpolation
+validate_customer(customer: Customer): Result {
     case customer {
         Customer(User(_, *, Email(email), age), Address(*, _, zip), orders) -> {
-            when {
-                age < 18 -> Error(“Must be 18 or older”)
-                !valid_email(email) -> Error(“Invalid email”)
-                !valid_zip(zip) -> Error(“Invalid zip code”)
-                orders.length == 0 -> Warning(“No order history”)
-                _ -> Ok(customer)
+            validation_errors = []
+
+            when age {
+                < 18 -> validation_errors.push("Must be 18 or older, got {age}")
+                _ -> {}
+            }
+
+            when !valid_email(email) {
+                true -> validation_errors.push("Invalid email: {email}")
+                _ -> {}
+            }
+
+            when !valid_zip(zip) {
+                true -> validation_errors.push("Invalid zip code: {zip}")
+                _ -> {}
+            }
+
+            case validation_errors.length {
+                0 -> {
+                    when orders.length {
+                        0 -> Warning("Customer {customer.user.name} has no order history")
+                        _ -> {
+                            print("Customer validation passed for {customer.user.name}")
+                            Ok(customer)
+                        }
+                    }
+                }
+                _ -> Error("Validation failed: {validation_errors.join(", ")}")
             }
         }
     }
 }
 
-// Generic-like behavior through structural typing
+// Generic-like behavior through structural typing with string interpolation
 serialize_entity(entity) {
     // Works with any type that has .name field
-    fmt “{ "name": "” + entity.name + “" }” // Potential syntax for string interpolation
+    timestamp = now()
+    "{ \"name\": \"{entity.name}\", \"serialized_at\": \"{timestamp}\" }"
 }
 
 live entities = [
-    User(UserId(1), “Alice”, Email(“alice@test.com”), 25),
-    Product(ProductId(100), “Widget”, 19.99, “Tools”)
+    User(id: UserId(id: 1), name: "Alice", email: Email(address: "alice@test.com"), age: 25),
+    Product(id: ProductId(id: 100), name: "Widget", price: 19.99, category: "Tools")
 ]
 
-// Both User and Product have .name, so this works:
-serialized = entities.map(serialize_entity)
+// Both User and Product have .name, so this works with chaining:
+serialized = entities
+    .filter(|e| e.name.length > 0)
+    .map(serialize_entity)
+    .join_with_newlines()
 
 // =============================================================================
 // CONSTRUCTION AND DESTRUCTION
 // =============================================================================
 
-// Constructor functions are just regular functions
-make_point(x: Float, y: Float): Point = Point(x, y)
+// Constructor functions are just regular functions with chaining
+make_point(x: Float, y: Float): Point = Point(x: x, y: y)
+    .validate_coordinates()
+    .normalize_if_needed()
 
 // Destructuring assignment
 Point(x, y) = get_mouse_position()
 User(user_id, username, _, _) = current_user
 
-// Update patterns (functional style)
-update_user_age(user, new_age) {
+// Update patterns (functional style) with string interpolation
+update_user_age(user: User, new_age: Int): User {
     case user {
-    User(id, name, email, _) -> User(id, name, email, new_age)
+        User(id, name, email, _) -> {
+            updated = User(id: id, name: name, email: email, age: new_age)
+            print("Updated {name}'s age from {user.age} to {new_age}")
+            updated
+        }
     }
 }
 
-// Or with potential syntax sugar:
-update_user_age_alt(user, new_age) = user with { age: new_age }
+// Chaining-based update approach
+update_user_age_chaining(user: User, new_age: Int): User = user
+    .validate_age_change(new_age)
+    .update_age(new_age)
+    .log_change("Age updated to {new_age}")
+    .save()

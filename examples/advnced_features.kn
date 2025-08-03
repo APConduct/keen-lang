@@ -1,57 +1,97 @@
-// Higher-order functions
+// Higher-order functions with string interpolation
 map(list, func) {
     case list {
-        [] -> []
-        [head, ...tail] -> [func(head), ...map(tail, func)]
+        [] -> {
+            print("Mapping empty list")
+            []
+        }
+        [head, ...tail] -> {
+            mapped_head = func(head)
+            print("Mapped {head} to {mapped_head}")
+            [mapped_head, ...map(tail, func)]
+        }
     }
 }
 
-// Function types
-apply_twice(f: (Int) -> Int, x: Int): Int = f(f(x))
+// Function types with enhanced logging
+apply_twice(f: (Int) -> Int, x: Int): Int = {
+    first_result = f(x)
+    final_result = f(first_result)
+    print("Applied function twice: {x} -> {first_result} -> {final_result}")
+    final_result
+}
 
-// Closures and local functions
+// Closures and local functions with state tracking
 create_counter(start: Int) {
-    count = start
+    live count = start
+    print("Counter initialized with value: {start}")
 
     increment() {
         count = count + 1
+        print("Counter incremented to: {count}")
         count
     }
 
     increment
 }
 
-// Generic-like behavior through structural typing
+// Generic-like behavior through structural typing with chaining
 sort_by(items, key_func) {
     // Works with any collection and any key function
     // Type system ensures key_func returns comparable type
-    bubble_sort(items, |a, b| key_func(a) < key_func(b))
+    print("Sorting {items.length} items")
+
+    items
+        .validate_all()
+        .map_with_key(key_func)
+        .sort_by_key()
+        .extract_items()
 }
 
-// Complex data structures
+// Complex data structures with enhanced processing
 type Tree =
     | Leaf(value: Int)
     | Node(left: Tree, right: Tree, value: Int)
 
-tree_sum(tree) {
+tree_sum(tree: Tree): Int {
     case tree {
-        Leaf(value) -> value
-        Node(left, right, value) -> tree_sum(left) + tree_sum(right) + value
+        Leaf(value) -> {
+            print("Summing leaf with value: {value}")
+            value
+        }
+        Node(left, right, value) -> {
+            left_sum = tree_sum(left)
+            right_sum = tree_sum(right)
+            total = left_sum + right_sum + value
+            print("Node sum: {left_sum} + {right_sum} + {value} = {total}")
+            total
+        }
     }
 }
 
-// Error handling
-divide(a: Float, b: Float) {
+// Error handling with chaining and interpolation
+divide(a: Float, b: Float): Result {
     when b {
-        == 0.0 -> Error("Division by zero")
-        _ -> Ok(a / b)
+        == 0.0 -> {
+            print("Division by zero attempted: {a} / {b}")
+            Error("Division by zero")
+        }
+        _ -> {
+            result = a / b
+            print("Division successful: {a} / {b} = {result}")
+            Ok(result)
+        }
     }
 }
 
-// Chaining operations
+// Chaining operations with pipeline operator
 process_data(input) {
-    validate(input)
-        .then(|data| transform(data))
-        .then(|data| enrich(data))
-        .then(|data| save(data))
+    print("Processing data pipeline for input: {input.id}")
+
+    input
+        |> validate
+        |> transform
+        |> enrich
+        |> save
+        |> log_success("Data processing completed for {input.id}")
 }

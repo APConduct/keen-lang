@@ -1,198 +1,341 @@
 // =============================================================================
-// HELLO WORLD - Keen Language Example
+// HELLO WORLD - Keen Language Example (Modern Syntax)
 // =============================================================================
-// This demonstrates text output capabilities in Keen
+// This demonstrates all modern Keen features:
+// - String interpolation
+// - Method chaining
+// - Pipeline operators
+// - Constructor syntax
+// - Pattern matching
+// - Block expressions
 // =============================================================================
 
 main() = {
-    // Basic text output
+    // Basic text output with string interpolation
     print("Hello, World!")
     print("Welcome to the Keen programming language!")
 
-    // Print different data types
-    print(42)
-    print(3.14159)
-    print(true)
-    print(false)
+    // Print different data types with interpolation
+    age = 42
+    pi = 3.14159
+    is_active = true
+    is_complete = false
 
-    // Variables and expressions
+    print("Age: {age}")
+    print("Pi: {pi}")
+    print("Active: {is_active}")
+    print("Complete: {is_complete}")
+
+    // Variables and expressions with string interpolation
     name = "Keen"
-    version = 1.0
-    print("Language: " + name)
-    print("Version: " + version)
+    version = 2.0
+    print("Language: {name}")
+    print("Version: {version}")
 
-    // Arithmetic expressions
+    // Arithmetic expressions with interpolation
     x = 10
     y = 20
     sum = x + y
-    print("10 + 20 = " + sum)
+    print("{x} + {y} = {sum}")
 
-    // Function calls with output
+    // Function calls with chaining and interpolation
     result = calculate(5, 3)
-    print("calculate(5, 3) = " + result)
+        .validate()
+        .format()
+    print("calculate(5, 3) = {result}")
 
-    // Conditional output
+    // Conditional output with enhanced ternary
     score = 95
-    grade = score >= 90 ? "A" : "B"
-    print("Score " + score + " gets grade: " + grade)
+    grade = score >= 90 ? "A" : score >= 80 ? "B" : "C"
+    print("Score {score} gets grade: {grade}")
 
-    // Block expressions with output
+    // Block expressions with chaining and interpolation
     analysis = {
         data = [1, 2, 3, 4, 5]
-        total = sum_list(data)
+
+        total = data
+            |> filter(|x| x > 0)
+            |> reduce(add, 0)
+
         average = total / data.length
 
-        print("Data: " + data)
-        print("Total: " + total)
-        print("Average: " + average)
+        print("Data: {data}")
+        print("Total: {total}")
+        print("Average: {average}")
 
-        average
+        AnalysisResult(total: total, average: average, count: data.length)
     }
 
-    print("Final analysis result: " + analysis)
+    print("Analysis: total={analysis.total}, avg={analysis.average}")
 }
 
-// Helper function
-calculate(a: Int, b: Int): Int = {
+// Helper function with string interpolation
+calculate(a: Int, b: Int): CalculationResult = {
     result = a * b + a - b
-    print("Calculating: " + a + " * " + b + " + " + a + " - " + b)
-    result
+    print("Calculating: {a} * {b} + {a} - {b} = {result}")
+
+    CalculationResult(
+        operand1: a,
+        operand2: b,
+        result: result,
+        formula: "{a} * {b} + {a} - {b}"
+    )
 }
 
-// List processing function
+// List processing function with chaining
 sum_list(numbers: List): Int = {
     case numbers {
-        [] -> 0
-        [head, ...tail] -> head + sum_list(tail)
+        [] -> {
+            print("Summing empty list")
+            0
+        }
+        [head, ...tail] -> {
+            tail_sum = sum_list(tail)
+            total = head + tail_sum
+            print("Adding {head} to partial sum {tail_sum} = {total}")
+            total
+        }
     }
 }
 
-// Demonstration of pattern matching with output
-process_shape(shape: Shape) = {
-    case shape {
+// Pipeline-based list processing
+process_numbers = |numbers| numbers
+    |> filter(|x| x > 0)
+    |> map(|x| x * 2)
+    |> reduce(add, 0)
+
+// Demonstration of pattern matching with modern syntax
+process_shape(shape: Shape): ShapeResult = {
+    result = case shape {
         Circle(radius) -> {
             area = 3.14159 * radius * radius
-            print("Circle with radius " + radius + " has area " + area)
-            area
+            print("Circle with radius {radius} has area {area}")
+            ShapeResult(type: "circle", area: area, description: "Circle(r={radius})")
         }
         Rectangle(width, height) -> {
             area = width * height
-            print("Rectangle " + width + "x" + height + " has area " + area)
-            area
+            print("Rectangle {width}x{height} has area {area}")
+            ShapeResult(type: "rectangle", area: area, description: "Rectangle({width}x{height})")
         }
         Triangle(base, height) -> {
             area = 0.5 * base * height
-            print("Triangle with base " + base + " and height " + height + " has area " + area)
-            area
+            print("Triangle with base {base} and height {height} has area {area}")
+            ShapeResult(type: "triangle", area: area, description: "Triangle(b={base}, h={height})")
         }
     }
+
+    result
+        .validate()
+        .log_calculation()
 }
 
-// Lambda expressions with output
+// Lambda expressions with modern chaining and interpolation
 demo_lambdas() = {
     print("=== Lambda Expressions Demo ===")
 
-    // Simple lambda
+    // Simple lambda with pipeline
     double = |x| x * 2
     numbers = [1, 2, 3, 4, 5]
-    doubled = numbers.map(double)
 
-    print("Original: " + numbers)
-    print("Doubled: " + doubled)
+    processed = numbers
+        |> map(double)
+        |> filter(|x| x > 4)
+        |> sort()
 
-    // Lambda with multiple parameters
+    print("Original: {numbers}")
+    print("Processed (doubled, filtered >4, sorted): {processed}")
+
+    // Lambda with multiple parameters and interpolation
     add = |x, y| {
         result = x + y
-        print("Adding " + x + " + " + y + " = " + result)
+        print("Adding {x} + {y} = {result}")
         result
     }
 
     sum_result = add(10, 15)
-    print("Final sum: " + sum_result)
+    print("Final sum: {sum_result}")
 
-    // Higher-order function
-    apply_twice = |func, value| func(func(value))
+    // Higher-order function with method chaining
+    apply_twice = |func, value| value
+        |> func
+        |> func
+
     result = apply_twice(double, 3)
-    print("apply_twice(double, 3) = " + result)
+    print("apply_twice(double, 3) = {result}")
+
+    // Complex lambda chain
+    complex_processing = numbers
+        .map(|x| x * 2)
+        .filter(|x| x > 5)
+        .reduce(|acc, x| {
+            new_acc = acc + x
+            print("Accumulating: {acc} + {x} = {new_acc}")
+            new_acc
+        }, 0)
+
+    print("Complex processing result: {complex_processing}")
 }
 
-// Error handling with output
+// Error handling with chaining and interpolation
 safe_divide(a: Float, b: Float): Result = {
-    case b {
+    validation_result = case b {
         0.0 -> {
-            print("Error: Cannot divide by zero!")
+            print("Error: Cannot divide {a} by zero!")
             Error("Division by zero")
         }
         _ -> {
             result = a / b
-            print("Successfully divided " + a + " by " + b + " = " + result)
+            print("Successfully divided {a} by {b} = {result}")
             Ok(result)
         }
     }
+
+    validation_result
+        .map(|result| DivisionResult(dividend: a, divisor: b, quotient: result))
+        .map_err(|error| "Math error: {error}")
 }
 
-// User interaction simulation
+// Chained error handling
+process_calculations = |operations| operations
+    .map(|(a, b)| safe_divide(a, b))
+    .filter_ok()
+    .map(|result| result.quotient)
+    .reduce(add, 0.0)
+
+// User interaction simulation with modern features
 simulate_user_interaction() = {
     print("=== User Interaction Simulation ===")
 
-    // Simulated user data
+    // Simulated user data with constructor syntax
     users = [
         User(id: 1, name: "Alice", age: 28, email: "alice@example.com"),
         User(id: 2, name: "Bob", age: 35, email: "bob@example.com"),
         User(id: 3, name: "Carol", age: 22, email: "carol@example.com")
     ]
 
-    print("Processing " + users.length + " users:")
+    print("Processing {users.length} users:")
 
-    users.for_each(|user| {
-        case user {
-            User(id, name, age, email) -> {
-                print("User #" + id + ": " + name)
-                print("  Age: " + age)
-                print("  Email: " + email)
+    // Enhanced processing with chaining and interpolation
+    processed_users = users
+        .validate_all()
+        .sort_by(|u| u.age)
+        .map(|user| {
+            case user {
+                User(id, name, age, email) -> {
+                    print("User #{id}: {name}")
+                    print("  Age: {age}")
+                    print("  Email: {email}")
 
-                category = when age {
-                    < 25 -> "Young Professional"
-                    < 35 -> "Experienced Professional"
-                    _ -> "Senior Professional"
+                    category = when age {
+                        < 25 -> "Young Professional"
+                        < 35 -> "Experienced Professional"
+                        _ -> "Senior Professional"
+                    }
+
+                    print("  Category: {category}")
+                    print("---")
+
+                    UserProfile(
+                        user: user,
+                        category: category,
+                        status: "processed",
+                        processed_at: now()
+                    )
                 }
-
-                print("  Category: " + category)
-                print("---")
             }
-        }
-    })
+        })
+
+    // Summary with pipeline
+    summary = processed_users
+        |> group_by(|p| p.category)
+        |> map_values(|group| group.length)
+        |> format_summary
+
+    print("Summary: {summary}")
 }
 
-// Comprehensive demo
+// Comprehensive demo with all modern features
 run_all_demos() = {
-    print("🚀 Keen Language - Text Output Demo")
-    print("=====================================")
+    print("🚀 Keen Language - Complete Modern Syntax Demo")
+    print("==============================================")
 
+    print("\n📱 Main Demo:")
     main()
 
-    print("\n📊 Lambda Demo:")
+    print("\n📊 Lambda & Chaining Demo:")
     demo_lambdas()
 
     print("\n👥 User Processing Demo:")
     simulate_user_interaction()
 
     print("\n🔺 Shape Processing Demo:")
-    circle = Circle(radius: 5.0)
-    rectangle = Rectangle(width: 10.0, height: 6.0)
-    triangle = Triangle(base: 8.0, height: 4.0)
+    shapes = [
+        Circle(radius: 5.0),
+        Rectangle(width: 10.0, height: 6.0),
+        Triangle(base: 8.0, height: 4.0)
+    ]
 
-    process_shape(circle)
-    process_shape(rectangle)
-    process_shape(triangle)
+    results = shapes
+        .map(process_shape)
+        .sort_by(|r| r.area)
+        .map(|r| "Processed {r.type}: area={r.area}")
+
+    results.for_each(print)
 
     print("\n⚠️ Error Handling Demo:")
-    safe_divide(10.0, 2.0)
-    safe_divide(10.0, 0.0)
+    test_cases = [(10.0, 2.0), (10.0, 0.0), (15.0, 3.0)]
+
+    calculation_results = test_cases
+        |> map(|(a, b)| safe_divide(a, b))
+        |> map(|result| case result {
+            Ok(div_result) -> "✅ {div_result.dividend}/{div_result.divisor} = {div_result.quotient}"
+            Error(msg) -> "❌ {msg}"
+        })
+
+    calculation_results.for_each(print)
 
     print("\n🎉 All demos completed successfully!")
-    print("Keen's text output system is fully functional!")
+    print("Keen's modern syntax is fully functional with:")
+    print("  • String interpolation: \"Hello, {name}!\"")
+    print("  • Method chaining: obj.method().method()")
+    print("  • Pipeline operators: data |> func |> func")
+    print("  • Constructor syntax: Type(field: value)")
+    print("  • Enhanced pattern matching")
+    print("  • Block expressions with implicit returns")
 }
+
+// Additional type definitions for modern syntax
+type CalculationResult = CalculationResult(
+    operand1: Int,
+    operand2: Int,
+    result: Int,
+    formula: String
+)
+
+type ShapeResult = ShapeResult(
+    type: String,
+    area: Float,
+    description: String
+)
+
+type DivisionResult = DivisionResult(
+    dividend: Float,
+    divisor: Float,
+    quotient: Float
+)
+
+type UserProfile = UserProfile(
+    user: User,
+    category: String,
+    status: String,
+    processed_at: String
+)
+
+type AnalysisResult = AnalysisResult(
+    total: Int,
+    average: Float,
+    count: Int
+)
 
 // Entry point
 run_all_demos()

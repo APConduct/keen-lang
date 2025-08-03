@@ -5,14 +5,25 @@ type UserId = Int
 type ProductId = distinct Int
 type Temperature = distinct Float
 
-// Structural typing works automatically
+// Structural typing works automatically with string interpolation
 print_name(entity) {
-    entity.name  // Works with any type having .name field
+    name = entity.name  // Works with any type having .name field
+    print("Entity name: {name}")
+    name
 }
 
-// Usage
-user = { name: "Bob", age: 30 }
-product = { name: "Widget", price: 19.99 }
+// Usage with constructor syntax
+user = User(name: "Bob", age: 30)
+product = Product(name: "Widget", price: 19.99)
 
-print_name(user)     // OK - has .name
-print_name(product)  // OK - has .name
+// Enhanced usage with chaining and interpolation
+user_name = user |> print_name
+product_name = product |> print_name
+
+// Method chaining example
+formatted_user = user
+    .validate()
+    .normalize_name()
+    .format_display()
+
+print("User: {user_name}, Product: {product_name}")

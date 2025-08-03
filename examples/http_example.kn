@@ -1,6 +1,8 @@
-// HTTP server handler
-handle_user_request(request) {
-    user_id = extract_user_id(request.headers)
+// HTTP server handler with modern chaining and string interpolation
+handle_user_request(request: HttpRequest): HttpResponse {
+    user_id = request.headers
+        .get("authorization")
+        .and_then(extract_user_id)
 
     case user_id {
         Some(id) -> {
@@ -8,43 +10,62 @@ handle_user_request(request) {
             case user {
                 Some(u) -> {
                     when request.method {
-                        "GET" -> serialize_user(u)
-                        "PUT" -> update_user(u, request.body)
+                        "GET" -> u
+                            .serialize()
+                            .add_header("content-type", "application/json")
+                        "PUT" -> request.body
+                            |> parse_json
+                            |> validate_user_data
+                            |> update_user(u, _)
+                            |> format_response("User {u.name} updated successfully")
                         "DELETE" -> {
-                            delete_user(id)
-                            success_response()
+                            result = u.delete()
+                            success_response("User {u.name} deleted")
                         }
-                        _ -> method_not_allowed()
+                        _ -> method_not_allowed("Method {request.method} not supported")
                     }
                 }
-                None -> not_found_response()
+                None -> not_found_response("User with ID {id} not found")
             }
         }
-        None -> unauthorized_response()
+        None -> unauthorized_response("Missing or invalid authorization header")
     }
 }
 
-// Data processing pipeline
-analyze_sales_data(data) {
+// Data processing pipeline with enhanced chaining
+analyze_sales_data(data: List): SalesSummary {
     cleaned = data
         .filter(|record| record.amount > 0)
-        .map(|record| normalize_currency(record))
+        .map(normalize_currency)
+        .validate_all()
 
     summary = case cleaned.length {
-        0 -> empty_summary()
+        0 -> {
+            print("No valid sales data found")
+            empty_summary()
+        }
         _ -> {
-            total = cleaned.sum(|r| r.amount)
+            total = cleaned
+                |> map(|r| r.amount)
+                |> reduce(add, 0.0)
+
             average = total / cleaned.length
+
             top_products = cleaned
                 .group_by(|r| r.product_id)
+                .map(|group| group.calculate_totals())
                 .sort_by(|group| -group.total_sales)
                 .take(10)
 
-            SalesSummary {
+            print("Processed {cleaned.length} records, total: ${total}")
+
+            SalesSummary(
                 total: total,
                 average: average,
-                top_products: top_products
-            }
+                top_products: top_products,
+                processed_at: now(),
+                summary: "Analyzed {cleaned.length} sales records with total revenue of ${total}"
+            )
         }
     }
 
