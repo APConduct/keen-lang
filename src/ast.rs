@@ -144,6 +144,18 @@ pub enum Expression {
         name: String,
         args: Vec<ConstructorArg>,
     },
+    Block {
+        statements: Vec<Statement>,
+        expression: Option<Box<Expression>>,
+    },
+    Lambda {
+        params: Vec<String>,
+        body: Box<Expression>,
+    },
+    DestructuringPattern {
+        pattern: Pattern,
+        value: Box<Expression>,
+    },
 }
 
 #[derive(Debug, Clone, PartialEq)]

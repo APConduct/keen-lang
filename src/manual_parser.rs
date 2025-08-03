@@ -140,6 +140,10 @@ impl ManualParser {
     }
 
     fn parse_pattern(&mut self) -> Result<Pattern, ParseError> {
+        self.parse_pattern_primary()
+    }
+
+    fn parse_pattern_primary(&mut self) -> Result<Pattern, ParseError> {
         match self.current_token() {
             Some(Token::Integer(n)) => {
                 let n = *n;
@@ -174,37 +178,65 @@ impl ManualParser {
 
                 // Check if this is a constructor pattern
                 if self.check_token(&Token::LeftParen) {
-                    self.advance(); // consume '('
-
-                    let mut args = Vec::new();
-                    while !self.check_token(&Token::RightParen) && !self.is_at_end() {
-                        args.push(self.parse_pattern()?);
-
-                        if self.check_token(&Token::Comma) {
-                            self.advance();
-                        } else if !self.check_token(&Token::RightParen) {
-                            return Err(ParseError {
-                                message: "Expected ',' or ')' in constructor pattern".to_string(),
-                                position: self.position,
-                            });
-                        }
-                    }
-
-                    self.expect_token(
-                        &Token::RightParen,
-                        "Expected ')' after constructor arguments",
-                    )?;
-
-                    Ok(Pattern::Constructor { name, args })
+                    self.parse_constructor_pattern(name)
                 } else {
                     Ok(Pattern::Identifier(name))
                 }
+            }
+            Some(Token::LeftParen) => {
+                self.advance(); // consume '('
+                let pattern = self.parse_pattern()?;
+                self.expect_token(
+                    &Token::RightParen,
+                    "Expected ')' after parenthesized pattern",
+                )?;
+                Ok(pattern)
             }
             _ => Err(ParseError {
                 message: "Expected pattern".to_string(),
                 position: self.position,
             }),
         }
+    }
+
+    fn parse_constructor_pattern(&mut self, name: String) -> Result<Pattern, ParseError> {
+        self.advance(); // consume '('
+
+        let mut args = Vec::new();
+
+        while !self.check_token(&Token::RightParen) && !self.is_at_end() {
+            // Handle special wildcard syntax with multiple underscores: Customer(_, *, _)
+            if self.check_token(&Token::Underscore) {
+                self.advance();
+                args.push(Pattern::Wildcard);
+            } else if self.check_token(&Token::Multiply) {
+                // Handle "rest" pattern: * means "match any remaining fields"
+                self.advance();
+                // For now, treat * as a wildcard - in a full implementation this would
+                // be a special "rest" pattern that matches remaining constructor fields
+                args.push(Pattern::Wildcard);
+            } else {
+                // Parse nested patterns recursively
+                let nested_pattern = self.parse_pattern_primary()?;
+                args.push(nested_pattern);
+            }
+
+            if self.check_token(&Token::Comma) {
+                self.advance();
+            } else if !self.check_token(&Token::RightParen) {
+                return Err(ParseError {
+                    message: "Expected ',' or ')' in constructor pattern".to_string(),
+                    position: self.position,
+                });
+            }
+        }
+
+        self.expect_token(
+            &Token::RightParen,
+            "Expected ')' after constructor arguments",
+        )?;
+
+        Ok(Pattern::Constructor { name, args })
     }
 
     fn parse_condition_expression(&mut self) -> Result<Expression, ParseError> {
@@ -272,13 +304,108 @@ impl ManualParser {
     }
 
     pub fn parse_expression(&mut self) -> Result<Expression, ParseError> {
-        let left = self.parse_binary_expression()?;
-
-        // Check for ternary operator
-        if self.check_token(&Token::Question) {
-            self.parse_ternary_expression(left)
+        // Check for block expression first
+        if self.check_token(&Token::LeftBrace) {
+            self.parse_block_expression()
+        } else if self.check_token(&Token::Pipe) {
+            // Check for lambda expression
+            self.parse_lambda_expression()
         } else {
-            Ok(left)
+            let left = self.parse_binary_expression()?;
+
+            // Check for ternary operator
+            if self.check_token(&Token::Question) {
+                self.parse_ternary_expression(left)
+            } else {
+                Ok(left)
+            }
+        }
+    }
+
+    pub fn parse_block_expression(&mut self) -> Result<Expression, ParseError> {
+        self.expect_token(&Token::LeftBrace, "Expected '{'")?;
+
+        let mut statements = Vec::new();
+        let mut final_expression = None;
+
+        while !self.check_token(&Token::RightBrace) && !self.is_at_end() {
+            // Try to parse as statement first
+            if self.is_statement_start() {
+                statements.push(self.parse_statement()?);
+            } else {
+                // This must be the final expression
+                final_expression = Some(Box::new(self.parse_expression()?));
+                break;
+            }
+        }
+
+        self.expect_token(&Token::RightBrace, "Expected '}' after block")?;
+
+        Ok(Expression::Block {
+            statements,
+            expression: final_expression,
+        })
+    }
+
+    pub fn parse_lambda_expression(&mut self) -> Result<Expression, ParseError> {
+        self.expect_token(&Token::Pipe, "Expected '|'")?;
+
+        let mut params = Vec::new();
+        while !self.check_token(&Token::Pipe) && !self.is_at_end() {
+            if let Some(Token::Identifier(param)) = self.current_token() {
+                params.push(param.clone());
+                self.advance();
+
+                if self.check_token(&Token::Comma) {
+                    self.advance();
+                } else if !self.check_token(&Token::Pipe) {
+                    return Err(ParseError {
+                        message: "Expected ',' or '|' in lambda parameters".to_string(),
+                        position: self.position,
+                    });
+                }
+            } else {
+                return Err(ParseError {
+                    message: "Expected parameter name in lambda".to_string(),
+                    position: self.position,
+                });
+            }
+        }
+
+        self.expect_token(&Token::Pipe, "Expected closing '|'")?;
+
+        let body = self.parse_expression()?;
+
+        Ok(Expression::Lambda {
+            params,
+            body: Box::new(body),
+        })
+    }
+
+    fn parse_statement(&mut self) -> Result<Statement, ParseError> {
+        // For now, only support expression statements
+        // We can expand this later for variable declarations, etc.
+        let expr = self.parse_expression()?;
+        Ok(Statement::Expression(expr))
+    }
+
+    fn is_statement_start(&self) -> bool {
+        // Simple heuristic: if the current sequence looks like it could be a statement
+        // For now, we'll be conservative and only treat some patterns as statements
+        match self.current_token() {
+            Some(Token::Live) | Some(Token::Keep) => true,
+            Some(Token::Identifier(_)) => {
+                // Look ahead to see if this looks like an assignment
+                if let Some(Token::Assign) = self.peek_token() {
+                    true
+                } else if let Some(Token::Colon) = self.peek_token() {
+                    // Could be type annotation
+                    true
+                } else {
+                    false
+                }
+            }
+            _ => false,
         }
     }
 

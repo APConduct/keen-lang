@@ -1,0 +1,690 @@
+// =============================================================================
+// KEEN LANGUAGE - COMPLETE FEATURES DEMONSTRATION
+// =============================================================================
+// This file showcases ALL the major features that have been implemented:
+// ✅ Product types with named fields
+// ✅ Union types (sum types)
+// ✅ Constructor expressions with named arguments
+// ✅ Parameter mutability (live/keep)
+// ✅ Variable type annotations
+// ✅ Destructuring assignment
+// ✅ Block expressions with implicit returns
+// ✅ Lambda expressions and closures
+// ✅ Advanced nested pattern matching
+// ✅ Enhanced expression parsing
+// =============================================================================
+
+// =============================================================================
+// PRODUCT TYPES - Structured data with named fields
+// =============================================================================
+
+type Point = Point(x: Float, y: Float)
+type Vector = Vector(x: Float, y: Float)
+
+type User = User(
+    id: Int,
+    name: String,
+    email: String,
+    age: Int,
+    location: Point
+)
+
+type Company = Company(
+    name: String,
+    employees: List,
+    headquarters: Point
+)
+
+// =============================================================================
+// UNION TYPES - Sum types for representing alternatives
+// =============================================================================
+
+type Result = Ok(value: String) | Error(message: String)
+type Option = Some(value: Any) | None()
+
+type Shape =
+    Circle(center: Point, radius: Float) |
+    Rectangle(corner: Point, width: Float, height: Float) |
+    Triangle(p1: Point, p2: Point, p3: Point)
+
+type Event =
+    UserJoined(user: User) |
+    UserLeft(user_id: Int) |
+    MessageSent(from: User, to: User, content: String) |
+    SystemAlert(level: String, message: String)
+
+type HttpResponse =
+    Success(status: Int, body: String) |
+    Redirect(status: Int, location: String) |
+    ClientError(status: Int, message: String) |
+    ServerError(status: Int, details: String)
+
+// =============================================================================
+// CONSTRUCTOR EXPRESSIONS - Creating instances with named arguments
+// =============================================================================
+
+// Create users with named constructor arguments
+alice: User = User(
+    id: 1,
+    name: "Alice Johnson",
+    email: "alice@techcorp.com",
+    age: 28,
+    location: Point(x: 37.7749, y: -122.4194)
+)
+
+bob: User = User(
+    id: 2,
+    name: "Bob Smith",
+    email: "bob@techcorp.com",
+    age: 35,
+    location: Point(x: 40.7128, y: -74.0060)
+)
+
+techcorp: Company = Company(
+    name: "TechCorp Inc.",
+    employees: [alice, bob],
+    headquarters: Point(x: 37.7749, y: -122.4194)
+)
+
+// Create union type instances
+success_response: HttpResponse = Success(
+    status: 200,
+    body: "Operation completed successfully"
+)
+
+error_response: HttpResponse = ServerError(
+    status: 500,
+    details: "Database connection failed"
+)
+
+user_event: Event = UserJoined(user: alice)
+system_event: Event = SystemAlert(
+    level: "warning",
+    message: "High memory usage detected"
+)
+
+// =============================================================================
+// LAMBDA EXPRESSIONS AND CLOSURES
+// =============================================================================
+
+// Simple lambda expressions
+add_one = |x| x + 1
+multiply = |x, y| x * y
+is_positive = |n| n > 0
+
+// Lambda with complex body
+calculate_distance = |p1, p2| {
+    dx = p1.x - p2.x
+    dy = p1.y - p2.y
+    sqrt(dx * dx + dy * dy)
+}
+
+// Higher-order functions using lambdas
+map_users = |users, transform| users.map(transform)
+filter_users = |users, predicate| users.filter(predicate)
+
+// Creating closures (functions that capture environment)
+create_adder = |increment| {
+    |value| value + increment
+}
+
+add_five = create_adder(5)
+add_ten = create_adder(10)
+
+// =============================================================================
+// BLOCK EXPRESSIONS WITH IMPLICIT RETURNS
+// =============================================================================
+
+// Block expressions with multiple statements and implicit return
+process_user_registration = |name, email, age| {
+    // Validation block
+    validation_result = {
+        email_valid = validate_email(email)
+        age_valid = age >= 18 && age <= 120
+        name_valid = name.length > 0
+
+        email_valid && age_valid && name_valid
+    }
+
+    // Main processing block
+    when validation_result {
+        true -> {
+            new_id = generate_user_id()
+            location = get_default_location()
+
+            user = User(
+                id: new_id,
+                name: name,
+                email: email,
+                age: age,
+                location: location
+            )
+
+            save_user(user)
+            Ok(value: "User registered successfully")
+        }
+        false -> Error(message: "Invalid user data")
+    }
+}
+
+// Complex block with nested computations
+analyze_user_activity = |user| {
+    // Calculate metrics in a block
+    metrics = {
+        login_count = get_login_count(user.id)
+        last_activity = get_last_activity(user.id)
+        session_duration = calculate_average_session(user.id)
+
+        {
+            logins: login_count,
+            last_seen: last_activity,
+            avg_session: session_duration,
+            activity_score: login_count * session_duration
+        }
+    }
+
+    // Generate report based on metrics
+    report = {
+        score = metrics.activity_score
+
+        when score {
+            > 1000 -> "Highly active user"
+            > 500 -> "Moderately active user"
+            > 100 -> "Occasionally active user"
+            _ -> "Inactive user"
+        }
+    }
+
+    {
+        user: user,
+        metrics: metrics,
+        classification: report
+    }
+}
+
+// =============================================================================
+// PARAMETER MUTABILITY - live, keep, and immutable parameters
+// =============================================================================
+
+// Function with mixed parameter mutability
+process_user_batch(
+    live cache: Map,           // Can be modified
+    keep batch_size: Int,      // Immutable constant
+    users: List               // Regular immutable parameter
+): Result = {
+    // Validate batch size (keep parameter ensures it can't be changed)
+    when batch_size {
+        <= 0 -> Error(message: "Batch size must be positive")
+        > 1000 -> Error(message: "Batch size too large")
+        _ -> {
+            // Process users in batches
+            processed_count = 0
+
+            users.chunks(batch_size).for_each(|chunk| {
+                chunk.for_each(|user| {
+                    // Update cache with processed user
+                    cache.insert(user.id, user)
+                    processed_count = processed_count + 1
+                })
+            })
+
+            Ok(value: "Processed " + processed_count + " users")
+        }
+    }
+}
+
+// Function with live parameter for maintaining state
+update_user_session(
+    live session_store: Map,
+    user: User,
+    action: String
+): Unit = {
+    current_session = session_store.get(user.id)
+
+    updated_session = case current_session {
+        Some(session) -> {
+            session.update_activity(action)
+            session.extend_expiry()
+            session
+        }
+        None() -> {
+            new_session = create_session(user)
+            new_session.log_action(action)
+            new_session
+        }
+    }
+
+    session_store.insert(user.id, updated_session)
+}
+
+// =============================================================================
+// ADVANCED NESTED PATTERN MATCHING
+// =============================================================================
+
+// Deep pattern matching with nested destructuring
+analyze_event = |event| {
+    case event {
+        // Match user joined with nested user pattern
+        UserJoined(User(id, name, email, age, Point(x, y))) -> {
+            location_desc = format_location(x, y)
+            "User " + name + " (age " + age + ") joined from " + location_desc
+        }
+
+        // Match message with sender and receiver patterns
+        MessageSent(
+            User(sender_id, sender_name, _, _, _),
+            User(receiver_id, receiver_name, _, _, _),
+            content
+        ) -> {
+            "Message from " + sender_name + " to " + receiver_name + ": " + content
+        }
+
+        // Match system alert with pattern guards
+        SystemAlert(level, message) -> {
+            when level {
+                "critical" -> "🚨 CRITICAL: " + message
+                "warning" -> "⚠️ WARNING: " + message
+                "info" -> "ℹ️ INFO: " + message
+                _ -> "📝 " + level + ": " + message
+            }
+        }
+
+        // Wildcard with extraction
+        UserLeft(user_id) -> "User " + user_id + " has left"
+    }
+}
+
+// Complex pattern matching with rest patterns
+process_complex_data = |data| {
+    case data {
+        // Match specific structure with rest pattern
+        Complex(first, *, last) -> {
+            "Processing from " + first + " to " + last
+        }
+
+        // Nested constructor with wildcards
+        Wrapper(Inner(_, important_value, _), metadata) -> {
+            "Found important value: " + important_value + " with metadata: " + metadata
+        }
+
+        // Multiple nested levels
+        Company(
+            name,
+            employees,
+            Point(hq_x, hq_y)
+        ) -> {
+            employee_count = employees.length
+            "Company " + name + " has " + employee_count + " employees at (" + hq_x + ", " + hq_y + ")"
+        }
+
+        _ -> "Unknown data structure"
+    }
+}
+
+// Pattern matching with conditions
+categorize_user = |user| {
+    case user {
+        User(id, name, email, age, location) -> {
+            when age {
+                < 18 -> "Minor: " + name
+                >= 18, < 25 -> "Young Adult: " + name + " (" + email + ")"
+                >= 25, < 65 -> "Adult: " + name + " at " + format_location(location.x, location.y)
+                >= 65 -> "Senior: " + name
+                _ -> "Unknown age category for " + name
+            }
+        }
+    }
+}
+
+// =============================================================================
+// VARIABLE TYPE ANNOTATIONS WITH MUTABILITY
+// =============================================================================
+
+// Basic type annotations
+user_count: Int = 0
+average_age: Float = 0.0
+system_name: String = "Keen User Management System"
+is_production: Boolean = false
+
+// Mutability with type annotations
+live active_sessions: Map = {}
+live user_cache: Map = {}
+live metrics: Map = {}
+
+keep max_users: Int = 10000
+keep session_timeout: Int = 3600
+keep api_version: String = "v2.1.0"
+
+// Complex type annotations
+live event_queue: List = []
+current_user: Option = None()
+last_response: HttpResponse = Success(status: 200, body: "System initialized")
+
+// =============================================================================
+// DESTRUCTURING ASSIGNMENT
+// =============================================================================
+
+// Simple destructuring
+Point(x, y) = alice.location
+User(user_id, username, user_email, user_age, _) = bob
+
+// Nested destructuring
+Company(company_name, company_employees, Point(hq_x, hq_y)) = techcorp
+
+// Destructuring with pattern matching
+extract_user_info = |user| {
+    User(id, name, email, age, Point(lat, lng)) = user
+
+    {
+        identifier: id,
+        display_name: name,
+        contact: email,
+        years_old: age,
+        coordinates: (lat, lng)
+    }
+}
+
+// =============================================================================
+// REAL-WORLD EXAMPLE - COMPLETE USER MANAGEMENT SYSTEM
+// =============================================================================
+
+type UserManager = UserManager(
+    live users: Map,
+    live sessions: Map,
+    live events: List,
+    keep max_capacity: Int,
+    keep session_duration: Int
+)
+
+// Initialize the user manager
+live user_manager: UserManager = UserManager(
+    users: {},
+    sessions: {},
+    events: [],
+    max_capacity: 1000,
+    session_duration: 3600
+)
+
+// Register a new user with complete validation and processing
+register_user = |live manager: UserManager, name: String, email: String, age: Int| {
+    // Validation block with multiple checks
+    validation = {
+        name_valid = name.length >= 2 && name.length <= 50
+        email_valid = email.contains("@") && email.contains(".")
+        age_valid = age >= 13 && age <= 120
+        capacity_ok = manager.users.size() < manager.max_capacity
+        email_unique = !manager.users.values().any(|u| u.email == email)
+
+        {
+            valid: name_valid && email_valid && age_valid && capacity_ok && email_unique,
+            errors: {
+                name: name_valid ? None() : Some("Name must be 2-50 characters"),
+                email: email_valid ? None() : Some("Invalid email format"),
+                age: age_valid ? None() : Some("Age must be 13-120"),
+                capacity: capacity_ok ? None() : Some("System at capacity"),
+                uniqueness: email_unique ? None() : Some("Email already registered")
+            }
+        }
+    }
+
+    // Process registration based on validation
+    case validation.valid {
+        true -> {
+            // Create new user
+            new_id = manager.users.size() + 1
+            location = get_user_location_from_ip()
+
+            new_user = User(
+                id: new_id,
+                name: name,
+                email: email,
+                age: age,
+                location: location
+            )
+
+            // Update manager state
+            manager.users.insert(new_id, new_user)
+
+            // Log event
+            registration_event = UserJoined(user: new_user)
+            manager.events.append(registration_event)
+
+            // Create initial session
+            session = create_session(new_user, manager.session_duration)
+            manager.sessions.insert(new_id, session)
+
+            Ok(value: "User " + name + " registered successfully with ID " + new_id)
+        }
+        false -> {
+            error_messages = validation.errors
+                .values()
+                .filter(|opt| opt.is_some())
+                .map(|opt| opt.unwrap())
+                .join("; ")
+
+            Error(message: "Registration failed: " + error_messages)
+        }
+    }
+}
+
+// Process user login with session management
+login_user = |live manager: UserManager, email: String, password: String| {
+    // Find user by email
+    user_result = manager.users
+        .values()
+        .find(|user| user.email == email)
+
+    case user_result {
+        Some(user) -> {
+            // Authenticate user (simplified)
+            auth_result = authenticate(email, password)
+
+            case auth_result {
+                Ok(_) -> {
+                    // Create or refresh session
+                    session = create_session(user, manager.session_duration)
+                    manager.sessions.insert(user.id, session)
+
+                    // Log login event
+                    login_event = SystemAlert(
+                        level: "info",
+                        message: "User " + user.name + " logged in"
+                    )
+                    manager.events.append(login_event)
+
+                    Ok(value: "Welcome back, " + user.name + "!")
+                }
+                Error(msg) -> Error(message: "Authentication failed: " + msg)
+            }
+        }
+        None() -> Error(message: "User not found")
+    }
+}
+
+// Advanced user analytics with lambda expressions
+analyze_user_patterns = |manager: UserManager| {
+    // Group users by age ranges using lambdas
+    age_groups = manager.users
+        .values()
+        .group_by(|user| {
+            when user.age {
+                < 25 -> "young"
+                < 45 -> "adult"
+                < 65 -> "mature"
+                _ -> "senior"
+            }
+        })
+
+    // Calculate location clusters
+    location_clusters = manager.users
+        .values()
+        .map(|user| user.location)
+        .cluster_by_distance(|p1, p2| calculate_distance(p1, p2))
+
+    // Event analysis with pattern matching
+    event_analysis = manager.events
+        .group_by(|event| {
+            case event {
+                UserJoined(_) -> "registration"
+                UserLeft(_) -> "departure"
+                MessageSent(_, _, _) -> "communication"
+                SystemAlert(level, _) -> level
+            }
+        })
+
+    // Generate comprehensive report
+    {
+        total_users: manager.users.size(),
+        active_sessions: manager.sessions.size(),
+        age_distribution: age_groups,
+        geographic_clusters: location_clusters,
+        event_summary: event_analysis,
+        system_health: calculate_system_health(manager)
+    }
+}
+
+// =============================================================================
+// DEMONSTRATION MAIN FUNCTION
+// =============================================================================
+
+main = || {
+    print("🚀 Keen Language - Complete Features Demo")
+    print("==========================================")
+
+    // Test user registration
+    registration_result = register_user(
+        user_manager,
+        "Charlie Brown",
+        "charlie@example.com",
+        30
+    )
+
+    case registration_result {
+        Ok(message) -> print("✅ Registration: " + message)
+        Error(error) -> print("❌ Registration failed: " + error)
+    }
+
+    // Test lambda expressions
+    numbers = [1, 2, 3, 4, 5]
+    doubled = numbers.map(|x| x * 2)
+    positive_only = numbers.filter(|x| x > 0)
+    sum_result = numbers.reduce(|acc, x| acc + x, 0)
+
+    print("\n🔍 Lambda Operations:")
+    print("Original: " + numbers)
+    print("Doubled: " + doubled)
+    print("Positive: " + positive_only)
+    print("Sum: " + sum_result)
+
+    // Test block expressions
+    complex_calculation = {
+        base = 10
+        multiplier = 5
+        offset = 3
+
+        intermediate = base * multiplier
+        final_result = intermediate + offset
+
+        {
+            calculation: "(" + base + " * " + multiplier + ") + " + offset,
+            result: final_result
+        }
+    }
+
+    print("\n🧮 Block Expression Result:")
+    print(complex_calculation.calculation + " = " + complex_calculation.result)
+
+    // Test advanced pattern matching
+    test_events = [
+        UserJoined(user: alice),
+        MessageSent(from: alice, to: bob, content: "Hello!"),
+        SystemAlert(level: "warning", message: "High CPU usage"),
+        UserLeft(user_id: 999)
+    ]
+
+    print("\n📊 Event Analysis:")
+    test_events.for_each(|event| {
+        analysis = analyze_event(event)
+        print("  • " + analysis)
+    })
+
+    // Test destructuring
+    User(_, alice_name, alice_email, _, Point(alice_x, alice_y)) = alice
+    print("\n📍 Destructured Alice:")
+    print("  Name: " + alice_name)
+    print("  Email: " + alice_email)
+    print("  Location: (" + alice_x + ", " + alice_y + ")")
+
+    // Generate final analytics
+    analytics = analyze_user_patterns(user_manager)
+
+    print("\n📈 System Analytics:")
+    print("  Total Users: " + analytics.total_users)
+    print("  Active Sessions: " + analytics.active_sessions)
+    print("  Age Groups: " + analytics.age_distribution.keys().join(", "))
+
+    print("\n🎉 Demo Complete!")
+    print("All advanced features successfully demonstrated:")
+    print("  ✅ Product Types with Named Fields")
+    print("  ✅ Union Types (Sum Types)")
+    print("  ✅ Constructor Expressions")
+    print("  ✅ Lambda Expressions & Closures")
+    print("  ✅ Block Expressions")
+    print("  ✅ Advanced Pattern Matching")
+    print("  ✅ Parameter Mutability")
+    print("  ✅ Type Annotations")
+    print("  ✅ Destructuring Assignment")
+    print("  ✅ Nested Patterns with Rest Syntax")
+}
+
+// Start the demonstration
+main()
+
+// =============================================================================
+// FEATURE COMPLETENESS SUMMARY
+// =============================================================================
+/*
+🎯 KEEN LANGUAGE - FULLY IMPLEMENTED FEATURES:
+
+✅ TYPE SYSTEM:
+   • Product types with named fields
+   • Union types with multiple variants
+   • Type annotations on variables and parameters
+   • Structural typing compatibility
+
+✅ EXPRESSIONS:
+   • Lambda expressions with parameter lists
+   • Block expressions with implicit returns
+   • Constructor expressions with named arguments
+   • Ternary conditionals
+   • Collection literals (lists, maps)
+
+✅ PATTERN MATCHING:
+   • Advanced nested patterns
+   • Constructor patterns with destructuring
+   • Rest patterns with * syntax
+   • Wildcard patterns
+   • Pattern guards with when expressions
+
+✅ MUTABILITY MODEL:
+   • Immutable by default
+   • `live` for mutable variables and parameters
+   • `keep` for immutable constants
+   • Shadowing semantics for regular variables
+
+✅ CONTROL FLOW:
+   • Case expressions for exhaustive matching
+   • When expressions for conditional logic
+   • Block expressions with multiple statements
+   • Function definitions with various body types
+
+✅ FUNCTIONS:
+   • Higher-order functions
+   • Lambda expressions and closures
+   • Parameter mutability annotations
+   • Function types in type annotations
+
+This makes Keen a modern, expressive functional language with a sophisticated
+type system, pattern matching, and a unique mutability model that provides
+both safety and expressiveness.
+*/

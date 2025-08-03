@@ -20,6 +20,7 @@ fn item_parser() -> impl Parser<Token, Item, Error = Simple<Token>> {
     choice((
         function_parser(),
         type_def_parser(),
+        destructuring_assignment_parser(),
         variable_decl_parser().map(Item::VariableDecl),
     ))
 }
@@ -203,17 +204,42 @@ fn type_parser() -> impl Parser<Token, Type, Error = Simple<Token>> {
 
 fn statement_parser() -> impl Parser<Token, Statement, Error = Simple<Token>> {
     choice((
-        destructuring_parser(),
         variable_decl_parser().map(Statement::VariableDecl),
+        destructuring_statement_parser(),
         expression_parser().map(Statement::Expression),
     ))
 }
 
-fn destructuring_parser() -> impl Parser<Token, Statement, Error = Simple<Token>> {
+fn destructuring_assignment_parser() -> impl Parser<Token, Item, Error = Simple<Token>> {
+    pattern_parser()
+        .then_ignore(just(Token::Assign))
+        .then(expression_parser())
+        .map(|(pattern, value)| {
+            Item::VariableDecl(VariableDecl {
+                name: extract_pattern_name(&pattern),
+                mutability: Mutability::Immutable,
+                type_annotation: None,
+                value: Expression::DestructuringPattern {
+                    pattern,
+                    value: Box::new(value),
+                },
+            })
+        })
+}
+
+fn destructuring_statement_parser() -> impl Parser<Token, Statement, Error = Simple<Token>> {
     pattern_parser()
         .then_ignore(just(Token::Assign))
         .then(expression_parser())
         .map(|(pattern, value)| Statement::DestructuringDecl { pattern, value })
+}
+
+fn extract_pattern_name(pattern: &Pattern) -> String {
+    match pattern {
+        Pattern::Identifier(name) => name.clone(),
+        Pattern::Constructor { name, .. } => format!("destructured_{}", name),
+        _ => "destructured".to_string(),
+    }
 }
 
 fn pattern_parser() -> impl Parser<Token, Pattern, Error = Simple<Token>> {
@@ -270,65 +296,20 @@ fn expression_parser() -> impl Parser<Token, Expression, Error = Simple<Token>> 
                 .delimited_by(just(Token::LeftParen), just(Token::RightParen)),
         ));
 
-        // Function calls and constructors
+        // Function calls
         let call = atom.then(
-            choice((
-                // Constructor with named arguments: Name(field: value, field2: value2)
-                choice((
-                    // Named arguments: field: value
-                    select! { Token::Identifier(field_name) => field_name }
-                        .then_ignore(just(Token::Colon))
-                        .then(expr.clone())
-                        .map(|(field_name, value)| ConstructorArg {
-                            name: Some(field_name),
-                            value,
-                        }),
-                    // Positional arguments
-                    expr.clone()
-                        .map(|value| ConstructorArg { name: None, value }),
-                ))
+            expr.clone()
                 .separated_by(just(Token::Comma))
                 .delimited_by(just(Token::LeftParen), just(Token::RightParen))
-                .map(|args| {
-                    // Check if any arguments are named to determine if this is a constructor
-                    let has_named_args = args.iter().any(|arg| arg.name.is_some());
-                    (args, has_named_args)
-                }),
-                // Regular function call: func(arg1, arg2)
-                expr.clone()
-                    .separated_by(just(Token::Comma))
-                    .delimited_by(just(Token::LeftParen), just(Token::RightParen))
-                    .map(|args| {
-                        let constructor_args = args
-                            .into_iter()
-                            .map(|value| ConstructorArg { name: None, value })
-                            .collect();
-                        (constructor_args, false)
-                    }),
-            ))
-            .repeated(),
+                .repeated(),
         );
 
         let call_expr = call.map(|(base, call_lists)| {
             call_lists
                 .into_iter()
-                .fold(base, |acc, (args, is_constructor)| {
-                    if is_constructor {
-                        if let Expression::Identifier(name) = acc {
-                            Expression::Constructor { name, args }
-                        } else {
-                            // Fallback to regular call if not an identifier
-                            Expression::Call {
-                                function: Box::new(acc),
-                                args: args.into_iter().map(|arg| arg.value).collect(),
-                            }
-                        }
-                    } else {
-                        Expression::Call {
-                            function: Box::new(acc),
-                            args: args.into_iter().map(|arg| arg.value).collect(),
-                        }
-                    }
+                .fold(base, |acc, args| Expression::Call {
+                    function: Box::new(acc),
+                    args,
                 })
         });
 
@@ -422,9 +403,12 @@ pub fn parse_with_manual_fallback(tokens: Vec<Token>) -> Result<Program, Vec<Str
 }
 
 fn has_complex_expressions(tokens: &[Token]) -> bool {
-    tokens
-        .iter()
-        .any(|token| matches!(token, Token::Case | Token::When | Token::Question))
+    tokens.iter().any(|token| {
+        matches!(
+            token,
+            Token::Case | Token::When | Token::Question | Token::LeftBrace | Token::Pipe
+        )
+    })
 }
 
 fn parse_hybrid(tokens: Vec<Token>) -> Result<Program, Vec<String>> {
@@ -456,9 +440,11 @@ fn parse_item_hybrid(tokens: &[Token], position: &mut usize) -> Result<Item, Str
     let item_tokens = tokens[start..end].to_vec();
     *position = end; // Update position immediately
 
-    // Check if this is a variable declaration with case/when
+    // Check if this is a variable declaration with complex expressions
     if is_variable_decl_with_complex_expr(&item_tokens) {
         parse_variable_with_complex_expr(item_tokens)
+    } else if has_block_or_lambda(&item_tokens) {
+        parse_item_with_manual_parser(item_tokens)
     } else {
         // Use regular chumsky parser for this item
         let chumsky_parser = parser();
@@ -531,6 +517,35 @@ fn is_variable_decl_with_complex_expr(tokens: &[Token]) -> bool {
     false
 }
 
+fn has_block_or_lambda(tokens: &[Token]) -> bool {
+    tokens
+        .iter()
+        .any(|token| matches!(token, Token::LeftBrace | Token::Pipe))
+}
+
+fn parse_item_with_manual_parser(tokens: Vec<Token>) -> Result<Item, String> {
+    // Check if this is a variable declaration pattern: name = complex_expr
+    if tokens.len() >= 3 {
+        if let (Some(Token::Identifier(name)), Some(Token::Assign)) = (tokens.get(0), tokens.get(1))
+        {
+            let name = name.clone();
+            let expr_tokens = tokens[2..].to_vec();
+
+            let mut manual_parser = ManualParser::new(expr_tokens);
+            if let Ok(expr) = manual_parser.parse_expression() {
+                return Ok(Item::VariableDecl(VariableDecl {
+                    name,
+                    mutability: Mutability::Immutable,
+                    type_annotation: None,
+                    value: expr,
+                }));
+            }
+        }
+    }
+
+    Err("Failed to parse with manual parser".to_string())
+}
+
 fn parse_variable_with_complex_expr(tokens: Vec<Token>) -> Result<Item, String> {
     if tokens.len() < 3 {
         return Err("Invalid variable declaration".to_string());
@@ -554,12 +569,18 @@ fn parse_variable_with_complex_expr(tokens: Vec<Token>) -> Result<Item, String> 
     } else if matches!(expr_tokens.first(), Some(Token::When)) {
         let mut manual_parser = ManualParser::new(expr_tokens);
         manual_parser.parse_when_expression()
+    } else if matches!(expr_tokens.first(), Some(Token::LeftBrace)) {
+        let mut manual_parser = ManualParser::new(expr_tokens);
+        manual_parser.parse_block_expression()
+    } else if matches!(expr_tokens.first(), Some(Token::Pipe)) {
+        let mut manual_parser = ManualParser::new(expr_tokens);
+        manual_parser.parse_lambda_expression()
     } else if expr_tokens.iter().any(|t| matches!(t, Token::Question)) {
         // Parse ternary expression - need to parse from the beginning
         let mut manual_parser = ManualParser::new(expr_tokens);
         manual_parser.parse_expression()
     } else {
-        return Err("Expected case, when, or ternary expression".to_string());
+        return Err("Expected case, when, ternary, block, or lambda expression".to_string());
     }
     .map_err(|e| e.message)?;
 
