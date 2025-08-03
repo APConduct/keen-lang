@@ -444,20 +444,119 @@ pub fn parse_with_manual_fallback(tokens: Vec<Token>) -> Result<Program, Vec<Str
 }
 
 fn has_complex_expressions(tokens: &[Token]) -> bool {
-    tokens.iter().any(|token| {
-        matches!(
-            token,
-            Token::Case
-                | Token::When
-                | Token::Question
-                | Token::LeftBrace
-                | Token::Pipe
-                | Token::Pipeline
-        ) || match token {
-            Token::String(s) => crate::lexer::has_interpolation(s),
-            _ => false,
+    // Look for specific patterns that require the manual parser
+    let mut i = 0;
+    while i < tokens.len() {
+        match &tokens[i] {
+            // These always need manual parser
+            Token::Case | Token::When => return true,
+
+            // String interpolation needs manual parser
+            Token::String(s) if crate::lexer::has_interpolation(s) => return true,
+
+            // Ternary operator needs manual parser
+            Token::Question => return true,
+
+            // Lambda expressions need manual parser (|param| expr)
+            Token::Pipe => {
+                // Check if this looks like a lambda: |...|
+                if let Some(_pipe_end) = find_matching_pipe(&tokens, i) {
+                    return true;
+                }
+            }
+
+            // Pipeline operator needs manual parser
+            Token::Pipeline => return true,
+
+            // Only consider LeftBrace complex if it's NOT part of a function body
+            Token::LeftBrace => {
+                // Check if this is a function definition pattern
+                if is_function_block_body(&tokens, i) {
+                    // This is a function body, let the regular parser handle it
+                } else {
+                    // This is a standalone block expression, needs manual parser
+                    return true;
+                }
+            }
+
+            _ => {}
         }
-    })
+        i += 1;
+    }
+
+    // Check for constructor expressions
+    if tokens.iter().any(|_| has_constructor_expression(tokens)) {
+        return true;
+    }
+    false
+}
+
+// Helper function to detect if a LeftBrace is part of a function definition
+fn is_function_block_body(tokens: &[Token], brace_pos: usize) -> bool {
+    // Pattern 1: identifier ( params ) { ... } (function block body)
+    if brace_pos >= 3 {
+        if let (Some(Token::Identifier(_)), Some(Token::LeftParen), Some(Token::RightParen)) = (
+            tokens.get(brace_pos - 3),
+            tokens.get(brace_pos - 2),
+            tokens.get(brace_pos - 1),
+        ) {
+            return true;
+        }
+    }
+
+    // Pattern 2: identifier ( ... params ... ) { ... } (function with parameters)
+    if brace_pos >= 2 {
+        if let Some(Token::RightParen) = tokens.get(brace_pos - 1) {
+            // Look backwards for matching LeftParen
+            let mut paren_depth = 1;
+            let mut i = brace_pos - 2;
+            loop {
+                if i == 0 {
+                    break;
+                }
+                match tokens.get(i) {
+                    Some(Token::RightParen) => paren_depth += 1,
+                    Some(Token::LeftParen) => {
+                        paren_depth -= 1;
+                        if paren_depth == 0 {
+                            // Found matching paren, check if preceded by identifier
+                            if i > 0 {
+                                if let Some(Token::Identifier(_)) = tokens.get(i - 1) {
+                                    return true;
+                                }
+                            }
+                            break;
+                        }
+                    }
+                    _ => {}
+                }
+                i -= 1;
+            }
+        }
+    }
+
+    // Pattern 3: = { ... } (expression body with block)
+    if brace_pos > 0 {
+        if let Some(Token::Assign) = tokens.get(brace_pos - 1) {
+            return true;
+        }
+    }
+
+    false
+}
+
+// Helper function to find matching pipe for lambda detection
+fn find_matching_pipe(tokens: &[Token], start: usize) -> Option<usize> {
+    for i in (start + 1)..tokens.len() {
+        match &tokens[i] {
+            Token::Pipe => return Some(i),
+            Token::LeftParen | Token::RightParen | Token::LeftBrace | Token::RightBrace => {
+                return None
+            }
+            _ => continue,
+        }
+    }
+    None
 }
 
 fn parse_hybrid(tokens: Vec<Token>) -> Result<Program, Vec<String>> {
@@ -489,26 +588,61 @@ fn parse_item_hybrid(tokens: &[Token], position: &mut usize) -> Result<Item, Str
     let item_tokens = tokens[start..end].to_vec();
     *position = end; // Update position immediately
 
-    // Check if this is a variable declaration with complex expressions
-    // Check if this is a variable declaration with case/when
-    if is_variable_decl_with_complex_expr(&item_tokens) {
-        parse_variable_with_complex_expr(item_tokens)
-    } else if has_block_or_lambda(&item_tokens) {
-        parse_item_with_manual_parser(item_tokens)
-    } else if has_string_interpolation(&item_tokens) {
-        parse_item_with_manual_parser(item_tokens)
-    } else {
-        // Use regular chumsky parser for this item
-        let chumsky_parser = parser();
-        match chumsky_parser.parse(item_tokens) {
-            Ok(mut program) => {
-                if let Some(item) = program.items.pop() {
-                    Ok(item)
-                } else {
-                    Err("Failed to parse item".to_string())
+    // Check the type of item first
+    let item_type = detect_item_type(&item_tokens, 0);
+
+    match item_type {
+        ItemType::Function => {
+            // Functions go to manual parser if they have complex expressions
+            if has_string_interpolation(&item_tokens) || has_block_or_lambda(&item_tokens) {
+                parse_item_with_manual_parser(item_tokens)
+            } else {
+                // Simple functions use chumsky parser
+                let chumsky_parser = parser();
+                match chumsky_parser.parse(item_tokens) {
+                    Ok(mut program) => {
+                        if let Some(item) = program.items.pop() {
+                            Ok(item)
+                        } else {
+                            Err("Failed to parse item".to_string())
+                        }
+                    }
+                    Err(_) => Err("Failed to parse item with chumsky".to_string()),
                 }
             }
-            Err(_) => Err("Failed to parse item with chumsky".to_string()),
+        }
+        ItemType::Variable => {
+            // Variables with complex expressions use manual parser
+            if is_variable_decl_with_complex_expr(&item_tokens) {
+                parse_variable_with_complex_expr(item_tokens)
+            } else {
+                // Simple variables use chumsky parser
+                let chumsky_parser = parser();
+                match chumsky_parser.parse(item_tokens) {
+                    Ok(mut program) => {
+                        if let Some(item) = program.items.pop() {
+                            Ok(item)
+                        } else {
+                            Err("Failed to parse item".to_string())
+                        }
+                    }
+                    Err(_) => Err("Failed to parse item with chumsky".to_string()),
+                }
+            }
+        }
+        _ => {
+            // Type definitions and unknown items use chumsky parser
+            let chumsky_parser = parser();
+            match chumsky_parser.parse(item_tokens) {
+                Ok(mut program) => {
+                    if let Some(item) = program.items.pop() {
+                        Ok(item)
+                    } else {
+                        Err("Failed to parse item".to_string())
+                    }
+                }
+                Err(_) => Err("Failed to parse item with chumsky".to_string()),
+            }
         }
     }
 }
@@ -522,33 +656,171 @@ fn find_item_end(tokens: &[Token], start: usize) -> usize {
     let mut brace_depth = 0;
     let mut paren_depth = 0;
 
-    // Simple heuristic: look for assignment and find the complete expression
+    // Detect what kind of item this is
+    let item_type = detect_item_type(tokens, start);
+
+    match item_type {
+        ItemType::Function => find_function_end(tokens, start),
+        ItemType::TypeDef => find_type_def_end(tokens, start),
+        ItemType::Variable => find_variable_end(tokens, start),
+        ItemType::Unknown => {
+            // Fallback: try to find next top-level identifier
+            i = start + 1;
+            while i < tokens.len() {
+                if matches!(tokens[i], Token::Identifier(_)) {
+                    // Check if this looks like the start of a new item
+                    if is_new_item_start(tokens, i) {
+                        return i;
+                    }
+                }
+                i += 1;
+            }
+            tokens.len()
+        }
+    }
+}
+
+#[derive(Debug)]
+enum ItemType {
+    Function,
+    TypeDef,
+    Variable,
+    Unknown,
+}
+
+fn detect_item_type(tokens: &[Token], start: usize) -> ItemType {
+    if start >= tokens.len() {
+        return ItemType::Unknown;
+    }
+
+    // Type definition: "type Name = ..."
+    if matches!(tokens.get(start), Some(Token::Type)) {
+        return ItemType::TypeDef;
+    }
+
+    // Function definition: "name(...) ..." or "name(...): Type ..."
+    if let Some(Token::Identifier(_)) = tokens.get(start) {
+        if let Some(Token::LeftParen) = tokens.get(start + 1) {
+            return ItemType::Function;
+        }
+    }
+
+    // Variable declaration with type: "name: Type = ..."
+    if let Some(Token::Identifier(_)) = tokens.get(start) {
+        if let Some(Token::Colon) = tokens.get(start + 1) {
+            // Look for assignment after type annotation
+            let mut i = start + 2;
+            while i < tokens.len() && !matches!(tokens[i], Token::Assign) {
+                i += 1;
+            }
+            if i < tokens.len() && matches!(tokens[i], Token::Assign) {
+                return ItemType::Variable;
+            }
+        }
+    }
+
+    // Simple variable declaration: "name = ..."
+    if let Some(Token::Identifier(_)) = tokens.get(start) {
+        if let Some(Token::Assign) = tokens.get(start + 1) {
+            return ItemType::Variable;
+        }
+    }
+
+    ItemType::Unknown
+}
+
+fn find_function_end(tokens: &[Token], start: usize) -> usize {
+    let mut i = start;
+    let mut paren_depth = 0;
+    let mut brace_depth = 0;
+
+    // Skip function name and parameters
     while i < tokens.len() {
         match &tokens[i] {
-            Token::Assign if brace_depth == 0 && paren_depth == 0 => {
-                // Found assignment, now find the end of the value expression
-                i += 1; // skip the '='
-                while i < tokens.len() {
+            Token::LeftParen => paren_depth += 1,
+            Token::RightParen => {
+                paren_depth -= 1;
+                if paren_depth == 0 {
+                    i += 1; // Move past the closing paren
+                    break;
+                }
+            }
+            _ => {}
+        }
+        i += 1;
+    }
+
+    // Skip optional return type annotation
+    if i < tokens.len() && matches!(tokens[i], Token::Colon) {
+        i += 1; // Skip ':'
+        while i < tokens.len() && !matches!(tokens[i], Token::Assign | Token::LeftBrace) {
+            i += 1;
+        }
+    }
+
+    // Handle function body
+    if i < tokens.len() {
+        match &tokens[i] {
+            Token::Assign => {
+                // Expression body: name() = expr
+                i += 1;
+                find_expression_end(tokens, i)
+            }
+            Token::LeftBrace => {
+                // Block body: name() { ... }
+                brace_depth = 1;
+                i += 1;
+                while i < tokens.len() && brace_depth > 0 {
                     match &tokens[i] {
                         Token::LeftBrace => brace_depth += 1,
-                        Token::RightBrace => {
-                            brace_depth -= 1;
-                            if brace_depth == 0 {
-                                return i + 1; // Include the closing brace
-                            }
-                        }
-                        Token::LeftParen => paren_depth += 1,
-                        Token::RightParen => paren_depth -= 1,
+                        Token::RightBrace => brace_depth -= 1,
                         _ => {}
                     }
                     i += 1;
                 }
-                return tokens.len();
+                i // Already includes the closing brace
             }
+            _ => i,
+        }
+    } else {
+        i
+    }
+}
+
+fn find_type_def_end(tokens: &[Token], start: usize) -> usize {
+    let mut i = start;
+    let mut brace_depth = 0;
+    let mut paren_depth = 0;
+
+    // Skip "type Name ="
+    while i < tokens.len() && !matches!(tokens[i], Token::Assign) {
+        i += 1;
+    }
+    if i < tokens.len() {
+        i += 1; // Skip '='
+    }
+
+    // Find end of type definition
+    while i < tokens.len() {
+        match &tokens[i] {
             Token::LeftBrace => brace_depth += 1,
-            Token::RightBrace => brace_depth -= 1,
+            Token::RightBrace => {
+                brace_depth -= 1;
+                if brace_depth == 0 {
+                    return i + 1;
+                }
+            }
             Token::LeftParen => paren_depth += 1,
             Token::RightParen => paren_depth -= 1,
+            Token::Pipe if brace_depth == 0 && paren_depth == 0 => {
+                // Union type continues
+            }
+            _ if brace_depth == 0 && paren_depth == 0 => {
+                // Check if we've hit the next item
+                if is_new_item_start(tokens, i) {
+                    return i;
+                }
+            }
             _ => {}
         }
         i += 1;
@@ -556,14 +828,194 @@ fn find_item_end(tokens: &[Token], start: usize) -> usize {
     tokens.len()
 }
 
+fn find_variable_end(tokens: &[Token], start: usize) -> usize {
+    let mut i = start;
+    let mut paren_depth = 0;
+    let mut brace_depth = 0;
+    let mut bracket_depth = 0;
+
+    // Skip to assignment
+    while i < tokens.len() && !matches!(tokens[i], Token::Assign) {
+        i += 1;
+    }
+    if i < tokens.len() {
+        i += 1; // Skip '='
+    }
+
+    // Find end of variable expression more carefully
+    while i < tokens.len() {
+        match &tokens[i] {
+            Token::LeftParen => paren_depth += 1,
+            Token::RightParen => paren_depth -= 1,
+            Token::LeftBrace => brace_depth += 1,
+            Token::RightBrace => {
+                brace_depth -= 1;
+                if brace_depth == 0 {
+                    return i + 1;
+                }
+            }
+            Token::LeftBracket => bracket_depth += 1,
+            Token::RightBracket => bracket_depth -= 1,
+            Token::Identifier(_) if paren_depth == 0 && brace_depth == 0 && bracket_depth == 0 => {
+                // At top level, check if this looks like a real new item
+                if i + 1 < tokens.len() {
+                    match (&tokens[i], tokens.get(i + 1)) {
+                        // Function definition: name(
+                        (Token::Identifier(_), Some(Token::LeftParen)) => {
+                            // Don't treat constructor calls as function definitions
+                            // Only treat as new function if we're at the very start of a line
+                            // and have no nested parentheses/braces
+                            if paren_depth == 0 && brace_depth == 0 && bracket_depth == 0 {
+                                // This might be a new function, but check if it's really at item boundary
+                                // Look for assignment or type annotation in the expression so far
+                                let mut has_assignment_before = false;
+                                for j in (start..i).rev() {
+                                    if matches!(tokens[j], Token::Assign) {
+                                        has_assignment_before = true;
+                                        break;
+                                    }
+                                }
+                                // Only treat as new function if we haven't seen assignment in this expression
+                                if !has_assignment_before {
+                                    return i;
+                                }
+                            }
+                        }
+                        // Variable with type: name:
+                        (Token::Identifier(_), Some(Token::Colon)) => {
+                            return i;
+                        }
+                        // Simple variable: name =
+                        (Token::Identifier(_), Some(Token::Assign)) => {
+                            return i;
+                        }
+                        _ => {}
+                    }
+                }
+            }
+            _ => {}
+        }
+        i += 1;
+    }
+    tokens.len()
+}
+
+fn find_expression_end(tokens: &[Token], start: usize) -> usize {
+    let mut i = start;
+    let mut brace_depth = 0;
+    let mut paren_depth = 0;
+    let mut bracket_depth = 0;
+
+    while i < tokens.len() {
+        match &tokens[i] {
+            Token::LeftBrace => brace_depth += 1,
+            Token::RightBrace => {
+                brace_depth -= 1;
+                if brace_depth == 0 {
+                    return i + 1;
+                }
+            }
+            Token::LeftParen => paren_depth += 1,
+            Token::RightParen => paren_depth -= 1,
+            Token::LeftBracket => bracket_depth += 1,
+            Token::RightBracket => bracket_depth -= 1,
+            _ if brace_depth == 0 && paren_depth == 0 && bracket_depth == 0 => {
+                // At top level, check if we've hit a new item
+                if is_new_item_start(tokens, i) {
+                    return i;
+                }
+            }
+            _ => {}
+        }
+        i += 1;
+    }
+    tokens.len()
+}
+
+fn is_new_item_start(tokens: &[Token], pos: usize) -> bool {
+    if pos >= tokens.len() {
+        return false;
+    }
+
+    match &tokens[pos] {
+        Token::Type => true,
+        Token::Identifier(_) => {
+            // Check for function: name(
+            if let Some(Token::LeftParen) = tokens.get(pos + 1) {
+                return true;
+            }
+            // Check for variable with type: name:
+            if let Some(Token::Colon) = tokens.get(pos + 1) {
+                return true;
+            }
+            // Check for simple variable: name =
+            if let Some(Token::Assign) = tokens.get(pos + 1) {
+                return true;
+            }
+            false
+        }
+        _ => false,
+    }
+}
+
 fn is_variable_decl_with_complex_expr(tokens: &[Token]) -> bool {
     // Check if this is a variable declaration (identifier = ...)
     if tokens.len() >= 3 {
-        if let (Some(Token::Identifier(_)), Some(Token::Assign)) = (tokens.get(0), tokens.get(1)) {
-            // Check if the expression contains case, when, or ternary
-            return tokens[2..]
-                .iter()
-                .any(|t| matches!(t, Token::Case | Token::When | Token::Question));
+        // Handle both "name = value" and "name: Type = value" patterns
+        let assignment_pos = tokens.iter().position(|t| matches!(t, Token::Assign));
+
+        if let Some(assign_idx) = assignment_pos {
+            if assign_idx > 0 && matches!(tokens.get(0), Some(Token::Identifier(_))) {
+                // Check if the expression after = contains complex features
+                let expr_tokens = &tokens[(assign_idx + 1)..];
+
+                let has_basic_complex = expr_tokens.iter().any(|t| {
+                    matches!(
+                        t,
+                        Token::Case
+                            | Token::When
+                            | Token::Question
+                            | Token::Pipeline
+                            | Token::Pipe
+                            | Token::LeftBrace
+                    ) || match t {
+                        Token::String(s) => crate::lexer::has_interpolation(s),
+                        _ => false,
+                    }
+                });
+
+                let has_constructor = has_constructor_expression(expr_tokens);
+
+                return has_basic_complex || has_constructor;
+            }
+        }
+    }
+    false
+}
+
+fn has_constructor_expression(tokens: &[Token]) -> bool {
+    // Look for pattern: Identifier(name: value, ...)
+    for i in 0..tokens.len().saturating_sub(2) {
+        if let (Some(Token::Identifier(_)), Some(Token::LeftParen)) =
+            (tokens.get(i), tokens.get(i + 1))
+        {
+            // Look for named arguments (name: value pattern)
+            let mut j = i + 2;
+            let mut paren_depth = 1;
+            while j < tokens.len() && paren_depth > 0 {
+                match &tokens[j] {
+                    Token::LeftParen => paren_depth += 1,
+                    Token::RightParen => paren_depth -= 1,
+                    Token::Identifier(_) if paren_depth == 1 => {
+                        // Check if followed by colon (named argument)
+                        if let Some(Token::Colon) = tokens.get(j + 1) {
+                            return true;
+                        }
+                    }
+                    _ => {}
+                }
+                j += 1;
+            }
         }
     }
     false
@@ -584,26 +1036,181 @@ fn has_string_interpolation(tokens: &[Token]) -> bool {
 }
 
 fn parse_item_with_manual_parser(tokens: Vec<Token>) -> Result<Item, String> {
-    // Check if this is a variable declaration pattern: name = complex_expr
+    // Check if this is a function definition: name(...) = expr or name(...) { ... }
+    if is_function_definition(&tokens) {
+        return parse_function_with_manual_parser(tokens);
+    }
+
+    // Check if this is a variable declaration pattern: name = complex_expr or name: Type = complex_expr
     if tokens.len() >= 3 {
-        if let (Some(Token::Identifier(name)), Some(Token::Assign)) = (tokens.get(0), tokens.get(1))
-        {
-            let name = name.clone();
-            let expr_tokens = tokens[2..].to_vec();
+        let name = if let Some(Token::Identifier(n)) = tokens.get(0) {
+            n.clone()
+        } else {
+            return Err("Expected identifier at start".to_string());
+        };
+
+        // Find the assignment position
+        let assignment_pos = tokens.iter().position(|t| matches!(t, Token::Assign));
+
+        if let Some(assign_idx) = assignment_pos {
+            let expr_tokens = tokens[(assign_idx + 1)..].to_vec();
 
             let mut manual_parser = ManualParser::new(expr_tokens);
-            if let Ok(expr) = manual_parser.parse_expression() {
-                return Ok(Item::VariableDecl(VariableDecl {
-                    name,
-                    mutability: Mutability::Immutable,
-                    type_annotation: None,
-                    value: expr,
-                }));
+            match manual_parser.parse_expression() {
+                Ok(expr) => {
+                    return Ok(Item::VariableDecl(VariableDecl {
+                        name,
+                        mutability: Mutability::Immutable,
+                        type_annotation: None,
+                        value: expr,
+                    }));
+                }
+                Err(_e) => {}
             }
         }
     }
 
     Err("Failed to parse with manual parser".to_string())
+}
+
+fn is_function_definition(tokens: &[Token]) -> bool {
+    if tokens.len() < 2 {
+        return false;
+    }
+
+    if let Some(Token::Identifier(_)) = tokens.get(0) {
+        if let Some(Token::LeftParen) = tokens.get(1) {
+            return true;
+        }
+    }
+    false
+}
+
+fn parse_function_with_manual_parser(tokens: Vec<Token>) -> Result<Item, String> {
+    // Extract function name
+    let name = if let Some(Token::Identifier(n)) = tokens.get(0) {
+        n.clone()
+    } else {
+        return Err("Expected function name".to_string());
+    };
+
+    // Find parameters (simplified - just extract parameter names)
+    let mut params = Vec::new();
+    let mut i = 2; // Skip name and LeftParen
+    while i < tokens.len() {
+        if let Some(Token::RightParen) = tokens.get(i) {
+            i += 1;
+            break;
+        }
+        if let Some(Token::Identifier(param_name)) = tokens.get(i) {
+            params.push(Parameter {
+                name: param_name.clone(),
+                type_annotation: None,
+                mutability: None,
+            });
+        }
+        i += 1;
+    }
+
+    // Skip optional return type annotation
+    if i < tokens.len() && matches!(tokens.get(i), Some(Token::Colon)) {
+        while i < tokens.len() && !matches!(tokens.get(i), Some(Token::Assign | Token::LeftBrace)) {
+            i += 1;
+        }
+    }
+
+    // Parse function body
+    let body = if i < tokens.len() {
+        match tokens.get(i) {
+            Some(Token::Assign) => {
+                // Expression body: parse the expression after =
+                let expr_tokens = tokens[(i + 1)..].to_vec();
+                let mut manual_parser = ManualParser::new(expr_tokens);
+                match manual_parser.parse_expression() {
+                    Ok(expr) => FunctionBody::Expression(expr),
+                    Err(e) => {
+                        return Err(format!(
+                            "Failed to parse function expression: {}",
+                            e.message
+                        ))
+                    }
+                }
+            }
+            Some(Token::LeftBrace) => {
+                // Block body: parse statements inside {}
+                let block_tokens = tokens[(i + 1)..(tokens.len() - 1)].to_vec(); // Remove { and }
+                let mut statements = Vec::new();
+
+                // Simple statement parsing - just treat each assignment as a statement
+                let mut j = 0;
+                while j < block_tokens.len() {
+                    if let Some(Token::Identifier(var_name)) = block_tokens.get(j) {
+                        if let Some(Token::Assign) = block_tokens.get(j + 1) {
+                            // Find end of this statement
+                            let mut stmt_end = j + 2;
+                            let mut depth = 0;
+                            while stmt_end < block_tokens.len() {
+                                match block_tokens.get(stmt_end) {
+                                    Some(
+                                        Token::LeftParen | Token::LeftBrace | Token::LeftBracket,
+                                    ) => depth += 1,
+                                    Some(
+                                        Token::RightParen | Token::RightBrace | Token::RightBracket,
+                                    ) => depth -= 1,
+                                    Some(Token::Identifier(_))
+                                        if depth == 0 && stmt_end + 1 < block_tokens.len() =>
+                                    {
+                                        if matches!(
+                                            block_tokens.get(stmt_end + 1),
+                                            Some(Token::Assign)
+                                        ) {
+                                            break; // Next statement
+                                        }
+                                    }
+                                    _ => {}
+                                }
+                                stmt_end += 1;
+                            }
+
+                            // Parse this statement's expression
+                            let stmt_expr_tokens = block_tokens[(j + 2)..stmt_end].to_vec();
+                            let mut manual_parser = ManualParser::new(stmt_expr_tokens);
+                            match manual_parser.parse_expression() {
+                                Ok(expr) => {
+                                    statements.push(Statement::VariableDecl(VariableDecl {
+                                        name: var_name.clone(),
+                                        mutability: Mutability::Immutable,
+                                        type_annotation: None,
+                                        value: expr,
+                                    }));
+                                }
+                                Err(_) => {
+                                    // Skip this statement
+                                }
+                            }
+                            j = stmt_end;
+                        } else {
+                            j += 1;
+                        }
+                    } else {
+                        j += 1;
+                    }
+                }
+
+                FunctionBody::Block(statements)
+            }
+            _ => return Err("Expected function body".to_string()),
+        }
+    } else {
+        return Err("Missing function body".to_string());
+    };
+
+    Ok(Item::Function(Function {
+        name,
+        params,
+        return_type: None,
+        body,
+    }))
 }
 
 fn parse_variable_with_complex_expr(tokens: Vec<Token>) -> Result<Item, String> {
@@ -616,12 +1223,16 @@ fn parse_variable_with_complex_expr(tokens: Vec<Token>) -> Result<Item, String> 
         _ => return Err("Expected identifier".to_string()),
     };
 
-    if !matches!(tokens[1], Token::Assign) {
-        return Err("Expected assignment".to_string());
-    }
+    // Find the assignment position (handles both "name = expr" and "name: Type = expr")
+    let assignment_pos = tokens.iter().position(|t| matches!(t, Token::Assign));
+
+    let assign_idx = match assignment_pos {
+        Some(idx) => idx,
+        None => return Err("Expected assignment".to_string()),
+    };
 
     // Parse the expression part with manual parser
-    let expr_tokens = tokens[2..].to_vec();
+    let expr_tokens = tokens[(assign_idx + 1)..].to_vec();
 
     let value = if matches!(expr_tokens.first(), Some(Token::Case)) {
         let mut manual_parser = ManualParser::new(expr_tokens);
@@ -636,30 +1247,30 @@ fn parse_variable_with_complex_expr(tokens: Vec<Token>) -> Result<Item, String> 
         let mut manual_parser = ManualParser::new(expr_tokens);
         manual_parser.parse_lambda_expression()
     } else if expr_tokens.iter().any(|t| matches!(t, Token::Question)) {
-        // Parse ternary expression - need to parse from the beginning
         let mut manual_parser = ManualParser::new(expr_tokens);
         manual_parser.parse_expression()
     } else if expr_tokens.iter().any(|t| match t {
         Token::String(s) => crate::lexer::has_interpolation(s),
         _ => false,
     }) {
-        // Parse string interpolation
         let mut manual_parser = ManualParser::new(expr_tokens);
         manual_parser.parse_expression()
     } else if expr_tokens
         .iter()
         .any(|t| matches!(t, Token::Pipeline))
     {
-        // Parse pipeline expression
+        let mut manual_parser = ManualParser::new(expr_tokens);
+        manual_parser.parse_expression()
+    } else if has_constructor_expression(&expr_tokens) {
         let mut manual_parser = ManualParser::new(expr_tokens);
         manual_parser.parse_expression()
     } else {
         return Err(
-            "Expected case, when, ternary, block, lambda, pipeline, or string interpolation expression"
+            "Expected case, when, ternary, block, lambda, pipeline, string interpolation, or constructor expression"
                 .to_string(),
         );
     }
-    .map_err(|e| e.message)?;
+    .map_err(|e| format!("Parse error in '{}': {}", name, e.message))?;
 
     Ok(Item::VariableDecl(VariableDecl {
         name,

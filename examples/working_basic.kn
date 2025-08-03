@@ -1,0 +1,31 @@
+// Working basic Keen example with simple syntax
+
+// Simple function definitions
+add(x, y) = x + y
+multiply(x, y) = x * y
+square(n) = n * n
+
+// Simple variables
+a = 10
+b = 20
+pi = 3.14159
+name = "Alice"
+active = true
+
+// Function calls
+sum = add(a, b)
+product = multiply(a, b)
+squared = square(5)
+
+// Simple function with block body
+main() {
+    result = add(10, 20)
+    final = multiply(result, 2)
+    final
+}
+
+// Function with single expression
+double(x) = x * 2
+
+// Simple arithmetic
+calculation = add(multiply(2, 3), 4)
