@@ -1,0 +1,41 @@
+// keep - immutable and non-shadowable constants
+keep PI = 3.14159
+keep MAX_CONNECTIONS = 100
+keep VERSION = “1.0.0”
+
+// Default - immutable but shadowable (functional style)
+data = load_file(“input.txt”)
+data = parse_json(data)
+data = validate_schema(data)
+data = transform_records(data)
+
+// live - explicitly mutable
+live cache = {}
+live connection_count = 0
+live current_user = None
+
+// Usage examples
+process_request() {
+    // This works - shadowing immutable
+    request = get_request()
+    request = add_timestamp(request)
+    request = sanitize_input(request)
+
+    // This works - mutating live variable
+    connection_count = connection_count + 1
+
+    when connection_count {
+        > MAX_CONNECTIONS -> reject_request()  // Using keep constant
+        _ -> {
+            cache.insert(request.id, request)  // Mutating live cache
+            handle_request(request)
+        }
+    }
+
+}
+
+// Errors that would be caught:
+// PI = 3.14                    // Error: cannot reassign ‘keep’ variable
+// MAX_CONNECTIONS = 200        // Error: cannot shadow ‘keep’ variable
+// data = “new value”            // OK - regular shadowing allowed
+// cache = {}                   // OK - live variables can be reassigned
