@@ -753,4 +753,89 @@ fn main() {
 
     println!("\n✅ STRING INTERPOLATION SYSTEM IMPLEMENTED!");
     println!("Keen now supports: \"Hello, {{name}}! You are {{age}} years old.\"");
+
+    // Test chaining syntax
+    println!("\n🔗 Testing Chaining Syntax");
+    println!("==========================");
+
+    // Test method chaining
+    let method_chain = "result = user.validate().normalize().save()";
+    let chain_tokens: Vec<Token> = Token::lexer(method_chain)
+        .collect::<Result<Vec<_>, _>>()
+        .unwrap();
+    println!("Method chain tokens: {:?}", chain_tokens);
+
+    match parser::parse_with_manual_fallback(chain_tokens) {
+        Ok(program) => println!("✅ Method chaining parsed: {:?}", program),
+        Err(errors) => println!("❌ Method chaining errors: {:?}", errors),
+    }
+
+    // Test pipeline operator
+    let pipeline_expr = r#"result = data |> filter |> map |> reduce"#;
+    let pipeline_tokens: Vec<Token> = Token::lexer(pipeline_expr)
+        .collect::<Result<Vec<_>, _>>()
+        .unwrap();
+    println!("\nPipeline tokens: {:?}", pipeline_tokens);
+
+    match parser::parse_with_manual_fallback(pipeline_tokens) {
+        Ok(program) => println!("✅ Pipeline operator parsed: {:?}", program),
+        Err(errors) => println!("❌ Pipeline operator errors: {:?}", errors),
+    }
+
+    // Test complex chaining with arguments
+    let complex_chain = r#"result = users.filter(is_active).map(get_name).sort().take(10)"#;
+    let complex_tokens: Vec<Token> = Token::lexer(complex_chain)
+        .collect::<Result<Vec<_>, _>>()
+        .unwrap();
+    println!("\nComplex chaining tokens: {:?}", complex_tokens);
+
+    match parser::parse_with_manual_fallback(complex_tokens) {
+        Ok(program) => println!("✅ Complex method chaining parsed: {:?}", program),
+        Err(errors) => println!("❌ Complex method chaining errors: {:?}", errors),
+    }
+
+    // Test pipeline with function arguments
+    let pipeline_with_args =
+        r#"result = data |> filter(is_valid) |> map(transform) |> reduce(combine, 0)"#;
+    let pipeline_args_tokens: Vec<Token> = Token::lexer(pipeline_with_args)
+        .collect::<Result<Vec<_>, _>>()
+        .unwrap();
+    println!("\nPipeline with args tokens: {:?}", pipeline_args_tokens);
+
+    match parser::parse_with_manual_fallback(pipeline_args_tokens) {
+        Ok(program) => println!("✅ Pipeline with arguments parsed: {:?}", program),
+        Err(errors) => println!("❌ Pipeline with arguments errors: {:?}", errors),
+    }
+
+    // Test mixed chaining and pipeline
+    let mixed_chain =
+        r#"result = data.preprocess() |> validate |> users.filter(is_active).map(transform)"#;
+    let mixed_tokens: Vec<Token> = Token::lexer(mixed_chain)
+        .collect::<Result<Vec<_>, _>>()
+        .unwrap();
+    println!("\nMixed chaining tokens: {:?}", mixed_tokens);
+
+    match parser::parse_with_manual_fallback(mixed_tokens) {
+        Ok(program) => println!("✅ Mixed chaining/pipeline parsed: {:?}", program),
+        Err(errors) => println!("❌ Mixed chaining/pipeline errors: {:?}", errors),
+    }
+
+    // Test field access chaining
+    let field_chain = "result = user.profile.address.city";
+    let field_tokens: Vec<Token> = Token::lexer(field_chain)
+        .collect::<Result<Vec<_>, _>>()
+        .unwrap();
+    println!("\nField access chaining tokens: {:?}", field_tokens);
+
+    match parser::parse_with_manual_fallback(field_tokens) {
+        Ok(program) => println!("✅ Field access chaining parsed: {:?}", program),
+        Err(errors) => println!("❌ Field access chaining errors: {:?}", errors),
+    }
+
+    println!("\n✅ CHAINING SYNTAX IMPLEMENTED!");
+    println!("Keen now supports:");
+    println!("  • Method chaining: user.validate().normalize().save()");
+    println!("  • Pipeline operator: data |> filter |> map |> reduce");
+    println!("  • Field access chaining: user.profile.address.city");
+    println!("  • Mixed operations: data.prep() |> validate |> process()");
 }

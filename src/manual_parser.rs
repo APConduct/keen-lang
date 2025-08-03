@@ -314,8 +314,11 @@ impl ManualParser {
         } else {
             let left = self.parse_binary_expression()?;
 
-            // Check for ternary operator
-            if self.check_token(&Token::Question) {
+            // Check for pipeline operator
+            if self.check_token(&Token::Pipeline) {
+                self.parse_pipeline_expression(left)
+            } else if self.check_token(&Token::Question) {
+                // Check for ternary operator
                 self.parse_ternary_expression(left)
             } else {
                 Ok(left)
@@ -381,6 +384,28 @@ impl ManualParser {
             params,
             body: Box::new(body),
         })
+    }
+
+    pub fn parse_pipeline_expression(
+        &mut self,
+        left: Expression,
+    ) -> Result<Expression, ParseError> {
+        let mut result = left;
+
+        while self.check_token(&Token::Pipeline) {
+            self.advance(); // consume '|>'
+
+            // Parse the right side (should be a function)
+            let right = self.parse_binary_expression()?;
+
+            // Transform into a function call: right(left)
+            result = Expression::Call {
+                function: Box::new(right),
+                args: vec![result],
+            };
+        }
+
+        Ok(result)
     }
 
     fn parse_statement(&mut self) -> Result<Statement, ParseError> {
@@ -630,64 +655,19 @@ impl ManualParser {
                         )?;
                     }
 
+                    // Handle method chaining for function calls
                     let mut expr = Expression::Call {
                         function: Box::new(Expression::Identifier(name)),
                         args,
                     };
 
-                    // Check for chained method calls
-                    while self.check_token(&Token::Dot) {
-                        self.advance(); // consume '.'
-
-                        if let Some(Token::Identifier(method)) = self.current_token() {
-                            let method = method.clone();
-                            self.advance();
-
-                            if self.check_token(&Token::LeftParen) {
-                                self.advance(); // consume '('
-
-                                let mut method_args = Vec::new();
-                                while !self.check_token(&Token::RightParen) && !self.is_at_end() {
-                                    method_args.push(self.parse_expression()?);
-
-                                    if self.check_token(&Token::Comma) {
-                                        self.advance();
-                                    } else if !self.check_token(&Token::RightParen) {
-                                        return Err(ParseError {
-                                            message: "Expected ',' or ')' in method call"
-                                                .to_string(),
-                                            position: self.position,
-                                        });
-                                    }
-                                }
-
-                                self.expect_token(
-                                    &Token::RightParen,
-                                    "Expected ')' after method arguments",
-                                )?;
-
-                                expr = Expression::MethodCall {
-                                    object: Box::new(expr),
-                                    method,
-                                    args: method_args,
-                                };
-                            } else {
-                                expr = Expression::FieldAccess {
-                                    object: Box::new(expr),
-                                    field: method,
-                                };
-                            }
-                        } else {
-                            return Err(ParseError {
-                                message: "Expected method name after '.'".to_string(),
-                                position: self.position,
-                            });
-                        }
-                    }
-
+                    expr = self.parse_method_chain(expr)?;
                     Ok(expr)
                 } else {
-                    Ok(Expression::Identifier(name))
+                    // Handle method chaining for identifiers
+                    let mut expr = Expression::Identifier(name);
+                    expr = self.parse_method_chain(expr)?;
+                    Ok(expr)
                 }
             }
             Some(Token::LeftParen) => {
@@ -911,6 +891,57 @@ impl ManualParser {
         }
 
         Ok(Expression::StringInterpolation { parts })
+    }
+
+    fn parse_method_chain(&mut self, mut expr: Expression) -> Result<Expression, ParseError> {
+        while self.check_token(&Token::Dot) {
+            self.advance(); // consume '.'
+
+            if let Some(Token::Identifier(method)) = self.current_token() {
+                let method = method.clone();
+                self.advance();
+
+                if self.check_token(&Token::LeftParen) {
+                    // Method call: .method(args)
+                    self.advance(); // consume '('
+
+                    let mut method_args = Vec::new();
+                    while !self.check_token(&Token::RightParen) && !self.is_at_end() {
+                        method_args.push(self.parse_expression()?);
+
+                        if self.check_token(&Token::Comma) {
+                            self.advance();
+                        } else if !self.check_token(&Token::RightParen) {
+                            return Err(ParseError {
+                                message: "Expected ',' or ')' in method call".to_string(),
+                                position: self.position,
+                            });
+                        }
+                    }
+
+                    self.expect_token(&Token::RightParen, "Expected ')' after method arguments")?;
+
+                    expr = Expression::MethodCall {
+                        object: Box::new(expr),
+                        method,
+                        args: method_args,
+                    };
+                } else {
+                    // Field access: .field
+                    expr = Expression::FieldAccess {
+                        object: Box::new(expr),
+                        field: method,
+                    };
+                }
+            } else {
+                return Err(ParseError {
+                    message: "Expected method name after '.'".to_string(),
+                    position: self.position,
+                });
+            }
+        }
+
+        Ok(expr)
     }
 }
 

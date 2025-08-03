@@ -16,6 +16,18 @@ pub fn parser() -> impl Parser<Token, Program, Error = Simple<Token>> {
     program
 }
 
+// Helper enum for chaining operations
+#[derive(Debug, Clone)]
+enum ChainOp {
+    MethodCall {
+        method: String,
+        args: Vec<Expression>,
+    },
+    FieldAccess {
+        field: String,
+    },
+}
+
 fn item_parser() -> impl Parser<Token, Item, Error = Simple<Token>> {
     choice((
         function_parser(),
@@ -313,19 +325,39 @@ fn expression_parser() -> impl Parser<Token, Expression, Error = Simple<Token>> 
                 })
         });
 
-        // Field access
-        let field = call_expr.then(
-            just(Token::Dot)
-                .ignore_then(select! { Token::Identifier(field) => field })
-                .repeated(),
+        // Field access and method chaining
+        let field_and_method = call_expr.then(
+            choice((
+                // Method call: .method(args)
+                just(Token::Dot)
+                    .ignore_then(select! { Token::Identifier(method) => method })
+                    .then(
+                        expr.clone()
+                            .separated_by(just(Token::Comma))
+                            .delimited_by(just(Token::LeftParen), just(Token::RightParen)),
+                    )
+                    .map(|(method, args)| ChainOp::MethodCall { method, args }),
+                // Field access: .field
+                just(Token::Dot)
+                    .ignore_then(select! { Token::Identifier(field) => field })
+                    .map(|field| ChainOp::FieldAccess { field }),
+            ))
+            .repeated(),
         );
 
-        let field_expr = field.map(|(base, fields)| {
-            fields
+        let field_expr = field_and_method.map(|(base, chains)| {
+            chains
                 .into_iter()
-                .fold(base, |acc, field| Expression::FieldAccess {
-                    object: Box::new(acc),
-                    field,
+                .fold(base, |acc, chain_op| match chain_op {
+                    ChainOp::MethodCall { method, args } => Expression::MethodCall {
+                        object: Box::new(acc),
+                        method,
+                        args,
+                    },
+                    ChainOp::FieldAccess { field } => Expression::FieldAccess {
+                        object: Box::new(acc),
+                        field,
+                    },
                 })
         });
 
@@ -384,7 +416,16 @@ fn expression_parser() -> impl Parser<Token, Expression, Error = Simple<Token>> 
                 right: Box::new(right),
             });
 
-        comparison
+        // Pipeline operator: expr |> function
+        let pipeline = comparison
+            .clone()
+            .then(just(Token::Pipeline).ignore_then(comparison).repeated())
+            .foldl(|left, right| Expression::Call {
+                function: Box::new(right),
+                args: vec![left],
+            });
+
+        pipeline
     })
 }
 
@@ -406,7 +447,12 @@ fn has_complex_expressions(tokens: &[Token]) -> bool {
     tokens.iter().any(|token| {
         matches!(
             token,
-            Token::Case | Token::When | Token::Question | Token::LeftBrace | Token::Pipe
+            Token::Case
+                | Token::When
+                | Token::Question
+                | Token::LeftBrace
+                | Token::Pipe
+                | Token::Pipeline
         ) || match token {
             Token::String(s) => crate::lexer::has_interpolation(s),
             _ => false,
@@ -526,7 +572,7 @@ fn is_variable_decl_with_complex_expr(tokens: &[Token]) -> bool {
 fn has_block_or_lambda(tokens: &[Token]) -> bool {
     tokens
         .iter()
-        .any(|token| matches!(token, Token::LeftBrace | Token::Pipe))
+        .any(|token| matches!(token, Token::LeftBrace | Token::Pipe | Token::Pipeline))
 }
 
 fn has_string_interpolation(tokens: &[Token]) -> bool {
@@ -600,9 +646,16 @@ fn parse_variable_with_complex_expr(tokens: Vec<Token>) -> Result<Item, String> 
         // Parse string interpolation
         let mut manual_parser = ManualParser::new(expr_tokens);
         manual_parser.parse_expression()
+    } else if expr_tokens
+        .iter()
+        .any(|t| matches!(t, Token::Pipeline))
+    {
+        // Parse pipeline expression
+        let mut manual_parser = ManualParser::new(expr_tokens);
+        manual_parser.parse_expression()
     } else {
         return Err(
-            "Expected case, when, ternary, block, lambda, or string interpolation expression"
+            "Expected case, when, ternary, block, lambda, pipeline, or string interpolation expression"
                 .to_string(),
         );
     }

@@ -80,6 +80,8 @@ pub enum Token {
     Underscore,
     #[token("|")]
     Pipe,
+    #[token("|>")]
+    Pipeline,
 
     // Brackets
     #[token("(")]
