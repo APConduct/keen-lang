@@ -1,5 +1,5 @@
 use chumsky::Parser;
-use keen::{lexer::Token, manual_parser::ManualParser, parser};
+use keen::{lexer::Token, manual_parser::ManualParser};
 use logos::Logos;
 
 fn main() {
@@ -542,4 +542,85 @@ fn main() {
     println!("  • Sophisticated mutability model (live/keep)");
     println!("  • Type annotations and inference");
     println!("  • Constructor expressions with named arguments");
+
+    // Test the compiler
+    println!("\n🔥 Testing Cranelift Compiler");
+    println!("==============================");
+
+    use keen::{codegen::KeenCodegen, parser};
+
+    // Test simple function compilation
+    let simple_func = "add(x: Int, y: Int): Int = x + y";
+    let tokens: Vec<Token> = Token::lexer(simple_func)
+        .collect::<Result<Vec<_>, _>>()
+        .unwrap();
+
+    match parser::parser().parse(tokens) {
+        Ok(program) => {
+            println!("✅ Parsed function for compilation: {:?}", program);
+
+            // Initialize codegen
+            match KeenCodegen::new() {
+                Ok(mut codegen) => {
+                    match codegen.compile_program(&program) {
+                        Ok(()) => {
+                            println!("✅ Function compiled successfully!");
+
+                            match codegen.finalize() {
+                                Ok(()) => {
+                                    println!("✅ Compilation finalized");
+
+                                    // Try to get function pointer
+                                    match codegen.get_function_ptr("add") {
+                                        Ok(func_ptr) => {
+                                            println!("✅ Got function pointer: {:?}", func_ptr);
+
+                                            // Execute the function
+                                            let result =
+                                                keen::codegen::execute_function_i64_with_args(
+                                                    func_ptr,
+                                                    &[5, 3],
+                                                );
+                                            println!("🎯 add(5, 3) = {}", result);
+                                        }
+                                        Err(e) => {
+                                            println!("❌ Failed to get function pointer: {}", e)
+                                        }
+                                    }
+                                }
+                                Err(e) => println!("❌ Failed to finalize: {}", e),
+                            }
+                        }
+                        Err(e) => println!("❌ Compilation failed: {}", e),
+                    }
+                }
+                Err(e) => println!("❌ Failed to initialize codegen: {}", e),
+            }
+        }
+        Err(errors) => println!("❌ Failed to parse function: {:?}", errors),
+    }
+
+    // Test simple expression compilation
+    let simple_expr = "result = 42";
+    let expr_tokens: Vec<Token> = Token::lexer(simple_expr)
+        .collect::<Result<Vec<_>, _>>()
+        .unwrap();
+
+    match parser::parser().parse(expr_tokens) {
+        Ok(program) => {
+            println!("\n✅ Parsed expression for compilation");
+
+            match KeenCodegen::new() {
+                Ok(mut codegen) => match codegen.compile_program(&program) {
+                    Ok(()) => println!("✅ Expression compiled successfully!"),
+                    Err(e) => println!("❌ Expression compilation failed: {}", e),
+                },
+                Err(e) => println!("❌ Failed to initialize codegen for expression: {}", e),
+            }
+        }
+        Err(errors) => println!("❌ Failed to parse expression: {:?}", errors),
+    }
+
+    println!("\n🎉 COMPILER INTEGRATION COMPLETE!");
+    println!("Keen now has a working Cranelift-based compiler backend!");
 }

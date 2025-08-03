@@ -1,0 +1,19 @@
+// First define a Person product type
+type Person = distinct {
+  age: Int
+  name: String
+}
+
+// Then overload the operator
+teach infix("*")(self: Person, other: Person): Person { // Potential syntax for infix operator overloading
+  // Some behavior
+  Person(age: self.age * other.age, name: this.name * other.name.len())
+}
+
+// Now you can do this:
+
+bob: Person = {age: 33, name: "Bob"}
+tim: Person = {age: 7, name: "Tim"}
+
+
+result_guy = bob * tim
