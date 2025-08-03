@@ -410,25 +410,91 @@ impl ManualParser {
                 let name = name.clone();
                 self.advance();
 
-                // Check for function call or method call
+                // Check for constructor, function call or method call
                 if self.check_token(&Token::LeftParen) {
                     self.advance(); // consume '('
 
                     let mut args = Vec::new();
-                    while !self.check_token(&Token::RightParen) && !self.is_at_end() {
-                        args.push(self.parse_expression()?);
+                    let mut constructor_args = Vec::new();
+                    let mut is_constructor = false;
 
-                        if self.check_token(&Token::Comma) {
-                            self.advance();
-                        } else if !self.check_token(&Token::RightParen) {
-                            return Err(ParseError {
-                                message: "Expected ',' or ')' in function call".to_string(),
-                                position: self.position,
-                            });
+                    // Check if this looks like a constructor (named arguments)
+                    if !self.check_token(&Token::RightParen) {
+                        // Peek ahead to see if we have "name:" pattern
+                        if let Some(Token::Identifier(_)) = self.current_token() {
+                            if let Some(Token::Colon) = self.peek_token() {
+                                is_constructor = true;
+                            }
                         }
                     }
 
-                    self.expect_token(&Token::RightParen, "Expected ')' after function arguments")?;
+                    if is_constructor {
+                        // Parse constructor arguments with named fields
+                        while !self.check_token(&Token::RightParen) && !self.is_at_end() {
+                            if let Some(Token::Identifier(field_name)) = self.current_token() {
+                                let field_name = field_name.clone();
+                                self.advance();
+
+                                if self.check_token(&Token::Colon) {
+                                    self.advance(); // consume ':'
+                                    let value = self.parse_expression()?;
+                                    constructor_args.push(ConstructorArg {
+                                        name: Some(field_name),
+                                        value,
+                                    });
+                                } else {
+                                    return Err(ParseError {
+                                        message: "Expected ':' after field name in constructor"
+                                            .to_string(),
+                                        position: self.position,
+                                    });
+                                }
+                            } else {
+                                return Err(ParseError {
+                                    message: "Expected field name in constructor".to_string(),
+                                    position: self.position,
+                                });
+                            }
+
+                            if self.check_token(&Token::Comma) {
+                                self.advance();
+                            } else if !self.check_token(&Token::RightParen) {
+                                return Err(ParseError {
+                                    message: "Expected ',' or ')' in constructor".to_string(),
+                                    position: self.position,
+                                });
+                            }
+                        }
+
+                        self.expect_token(
+                            &Token::RightParen,
+                            "Expected ')' after constructor arguments",
+                        )?;
+
+                        return Ok(Expression::Constructor {
+                            name,
+                            args: constructor_args,
+                        });
+                    } else {
+                        // Parse as regular function call
+                        while !self.check_token(&Token::RightParen) && !self.is_at_end() {
+                            args.push(self.parse_expression()?);
+
+                            if self.check_token(&Token::Comma) {
+                                self.advance();
+                            } else if !self.check_token(&Token::RightParen) {
+                                return Err(ParseError {
+                                    message: "Expected ',' or ')' in function call".to_string(),
+                                    position: self.position,
+                                });
+                            }
+                        }
+
+                        self.expect_token(
+                            &Token::RightParen,
+                            "Expected ')' after function arguments",
+                        )?;
+                    }
 
                     let mut expr = Expression::Call {
                         function: Box::new(Expression::Identifier(name)),

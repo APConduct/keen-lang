@@ -22,6 +22,7 @@ pub struct Function {
 pub struct Parameter {
     pub name: String,
     pub type_annotation: Option<Type>,
+    pub mutability: Option<Mutability>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -31,10 +32,20 @@ pub enum FunctionBody {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct TypeDef {
-    pub name: String,
-    pub is_distinct: bool,
-    pub underlying_type: Type,
+pub enum TypeDef {
+    Alias {
+        name: String,
+        is_distinct: bool,
+        underlying_type: Type,
+    },
+    Product {
+        name: String,
+        fields: Vec<ProductField>,
+    },
+    Union {
+        name: String,
+        variants: Vec<UnionVariant>,
+    },
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -59,12 +70,33 @@ pub enum Type {
         params: Vec<Type>,
         return_type: Box<Type>,
     },
+    Product {
+        name: String,
+        fields: Vec<ProductField>,
+    },
+    Union {
+        name: String,
+        variants: Vec<UnionVariant>,
+    },
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct ProductField {
+    pub name: String,
+    pub field_type: Type,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct UnionVariant {
+    pub name: String,
+    pub fields: Vec<ProductField>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Statement {
     Expression(Expression),
     VariableDecl(VariableDecl),
+    DestructuringDecl { pattern: Pattern, value: Expression },
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -108,6 +140,16 @@ pub enum Expression {
         method: String,
         args: Vec<Expression>,
     },
+    Constructor {
+        name: String,
+        args: Vec<ConstructorArg>,
+    },
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct ConstructorArg {
+    pub name: Option<String>,
+    pub value: Expression,
 }
 
 #[derive(Debug, Clone, PartialEq)]

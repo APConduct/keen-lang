@@ -78,6 +78,8 @@ pub enum Token {
     Question,
     #[token("_")]
     Underscore,
+    #[token("|")]
+    Pipe,
 
     // Brackets
     #[token("(")]

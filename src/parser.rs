@@ -1,6 +1,7 @@
 use crate::ast::{
-    BinaryOp, Expression, Function, FunctionBody, Item, Literal, Mutability, Parameter, Program,
-    Statement, Type, TypeDef, VariableDecl,
+    BinaryOp, ConstructorArg, Expression, Function, FunctionBody, Item, Literal, Mutability,
+    Parameter, Pattern, ProductField, Program, Statement, Type, TypeDef, UnionVariant,
+    VariableDecl,
 };
 use crate::lexer::Token;
 use crate::manual_parser::ManualParser;
@@ -26,12 +27,19 @@ fn item_parser() -> impl Parser<Token, Item, Error = Simple<Token>> {
 fn function_parser() -> impl Parser<Token, Item, Error = Simple<Token>> {
     let ident = select! { Token::Identifier(name) => name };
 
-    let param = ident
-        .clone()
+    let mutability = choice((
+        just(Token::Live).to(Mutability::Live),
+        just(Token::Keep).to(Mutability::Keep),
+    ))
+    .or_not();
+
+    let param = mutability
+        .then(ident.clone())
         .then(just(Token::Colon).ignore_then(type_parser()).or_not())
-        .map(|(name, type_annotation)| Parameter {
+        .map(|((mutability, name), type_annotation)| Parameter {
             name,
             type_annotation,
+            mutability,
         });
 
     let params = param
@@ -68,19 +76,66 @@ fn function_parser() -> impl Parser<Token, Item, Error = Simple<Token>> {
 fn type_def_parser() -> impl Parser<Token, Item, Error = Simple<Token>> {
     let ident = select! { Token::Identifier(name) => name };
 
-    let distinct = just(Token::Distinct).or_not().map(|d| d.is_some());
+    // Product field: name: Type
+    let product_field = || {
+        ident
+            .clone()
+            .then_ignore(just(Token::Colon))
+            .then(type_parser())
+            .map(|(name, field_type)| ProductField { name, field_type })
+    };
 
-    just(Token::Type)
-        .ignore_then(ident)
-        .then(just(Token::Assign).ignore_then(distinct))
-        .then(type_parser())
-        .map(|((name, is_distinct), underlying_type)| {
-            Item::TypeDef(TypeDef {
-                name,
-                is_distinct,
-                underlying_type,
+    // Union variant: Name(field1: Type, field2: Type)
+    let union_variant = ident
+        .clone()
+        .then(
+            product_field()
+                .separated_by(just(Token::Comma))
+                .delimited_by(just(Token::LeftParen), just(Token::RightParen))
+                .or_not()
+                .map(|fields| fields.unwrap_or_default()),
+        )
+        .map(|(name, fields)| UnionVariant { name, fields });
+
+    // Product type: type Name = Name(field1: Type, field2: Type)
+    let product_type = just(Token::Type)
+        .ignore_then(ident.clone())
+        .then_ignore(just(Token::Assign))
+        .then(ident.clone())
+        .then(
+            product_field()
+                .separated_by(just(Token::Comma))
+                .delimited_by(just(Token::LeftParen), just(Token::RightParen)),
+        )
+        .map(|((name, _constructor_name), fields)| {
+            Item::TypeDef(TypeDef::Product { name, fields })
+        });
+
+    // Union type: type Name = Variant1(fields) | Variant2(fields)
+    let union_type = just(Token::Type)
+        .ignore_then(ident.clone())
+        .then_ignore(just(Token::Assign))
+        .then(union_variant.separated_by(just(Token::Pipe)))
+        .map(|(name, variants)| Item::TypeDef(TypeDef::Union { name, variants }));
+
+    // Type alias: type Name = [distinct] Type
+    let alias_type = {
+        let distinct = just(Token::Distinct).or_not().map(|d| d.is_some());
+
+        just(Token::Type)
+            .ignore_then(ident)
+            .then(just(Token::Assign).ignore_then(distinct))
+            .then(type_parser())
+            .map(|((name, is_distinct), underlying_type)| {
+                Item::TypeDef(TypeDef::Alias {
+                    name,
+                    is_distinct,
+                    underlying_type,
+                })
             })
-        })
+    };
+
+    choice((union_type, product_type, alias_type))
 }
 
 fn variable_decl_parser() -> impl Parser<Token, VariableDecl, Error = Simple<Token>> {
@@ -93,19 +148,36 @@ fn variable_decl_parser() -> impl Parser<Token, VariableDecl, Error = Simple<Tok
     .or_not()
     .map(|m| m.unwrap_or(Mutability::Immutable));
 
-    mutability
-        .then(ident)
-        .then(just(Token::Colon).ignore_then(type_parser()).or_not())
-        .then_ignore(just(Token::Assign))
-        .then(expression_parser())
-        .map(
-            |(((mutability, name), type_annotation), value)| VariableDecl {
+    // Support both "name = value" and "name: Type = value" syntax
+    choice((
+        // name: Type = value
+        mutability
+            .clone()
+            .then(ident.clone())
+            .then_ignore(just(Token::Colon))
+            .then(type_parser())
+            .then_ignore(just(Token::Assign))
+            .then(expression_parser())
+            .map(
+                |(((mutability, name), type_annotation), value)| VariableDecl {
+                    name,
+                    mutability,
+                    type_annotation: Some(type_annotation),
+                    value,
+                },
+            ),
+        // name = value
+        mutability
+            .then(ident)
+            .then_ignore(just(Token::Assign))
+            .then(expression_parser())
+            .map(|((mutability, name), value)| VariableDecl {
                 name,
                 mutability,
-                type_annotation,
+                type_annotation: None,
                 value,
-            },
-        )
+            }),
+    ))
 }
 
 fn type_parser() -> impl Parser<Token, Type, Error = Simple<Token>> {
@@ -131,9 +203,51 @@ fn type_parser() -> impl Parser<Token, Type, Error = Simple<Token>> {
 
 fn statement_parser() -> impl Parser<Token, Statement, Error = Simple<Token>> {
     choice((
+        destructuring_parser(),
         variable_decl_parser().map(Statement::VariableDecl),
         expression_parser().map(Statement::Expression),
     ))
+}
+
+fn destructuring_parser() -> impl Parser<Token, Statement, Error = Simple<Token>> {
+    pattern_parser()
+        .then_ignore(just(Token::Assign))
+        .then(expression_parser())
+        .map(|(pattern, value)| Statement::DestructuringDecl { pattern, value })
+}
+
+fn pattern_parser() -> impl Parser<Token, Pattern, Error = Simple<Token>> {
+    recursive(|pattern| {
+        let ident = select! { Token::Identifier(name) => name };
+
+        choice((
+            // Constructor pattern: Name(p1, p2, ...)
+            ident
+                .clone()
+                .then(
+                    pattern
+                        .clone()
+                        .separated_by(just(Token::Comma))
+                        .delimited_by(just(Token::LeftParen), just(Token::RightParen))
+                        .or_not()
+                        .map(|args| args.unwrap_or_default()),
+                )
+                .map(|(name, args)| Pattern::Constructor { name, args }),
+            // Identifier pattern
+            ident.map(Pattern::Identifier),
+            // Wildcard pattern
+            just(Token::Underscore).to(Pattern::Wildcard),
+            // Literal patterns
+            choice((
+                select! { Token::Integer(n) => Literal::Integer(n) },
+                select! { Token::Float(f) => Literal::Float(f) },
+                select! { Token::String(s) => Literal::String(s) },
+                just(Token::True).to(Literal::Boolean(true)),
+                just(Token::False).to(Literal::Boolean(false)),
+            ))
+            .map(Pattern::Literal),
+        ))
+    })
 }
 
 fn expression_parser() -> impl Parser<Token, Expression, Error = Simple<Token>> {
@@ -156,20 +270,65 @@ fn expression_parser() -> impl Parser<Token, Expression, Error = Simple<Token>> 
                 .delimited_by(just(Token::LeftParen), just(Token::RightParen)),
         ));
 
-        // Function calls
+        // Function calls and constructors
         let call = atom.then(
-            expr.clone()
+            choice((
+                // Constructor with named arguments: Name(field: value, field2: value2)
+                choice((
+                    // Named arguments: field: value
+                    select! { Token::Identifier(field_name) => field_name }
+                        .then_ignore(just(Token::Colon))
+                        .then(expr.clone())
+                        .map(|(field_name, value)| ConstructorArg {
+                            name: Some(field_name),
+                            value,
+                        }),
+                    // Positional arguments
+                    expr.clone()
+                        .map(|value| ConstructorArg { name: None, value }),
+                ))
                 .separated_by(just(Token::Comma))
                 .delimited_by(just(Token::LeftParen), just(Token::RightParen))
-                .repeated(),
+                .map(|args| {
+                    // Check if any arguments are named to determine if this is a constructor
+                    let has_named_args = args.iter().any(|arg| arg.name.is_some());
+                    (args, has_named_args)
+                }),
+                // Regular function call: func(arg1, arg2)
+                expr.clone()
+                    .separated_by(just(Token::Comma))
+                    .delimited_by(just(Token::LeftParen), just(Token::RightParen))
+                    .map(|args| {
+                        let constructor_args = args
+                            .into_iter()
+                            .map(|value| ConstructorArg { name: None, value })
+                            .collect();
+                        (constructor_args, false)
+                    }),
+            ))
+            .repeated(),
         );
 
         let call_expr = call.map(|(base, call_lists)| {
             call_lists
                 .into_iter()
-                .fold(base, |acc, args| Expression::Call {
-                    function: Box::new(acc),
-                    args,
+                .fold(base, |acc, (args, is_constructor)| {
+                    if is_constructor {
+                        if let Expression::Identifier(name) = acc {
+                            Expression::Constructor { name, args }
+                        } else {
+                            // Fallback to regular call if not an identifier
+                            Expression::Call {
+                                function: Box::new(acc),
+                                args: args.into_iter().map(|arg| arg.value).collect(),
+                            }
+                        }
+                    } else {
+                        Expression::Call {
+                            function: Box::new(acc),
+                            args: args.into_iter().map(|arg| arg.value).collect(),
+                        }
+                    }
                 })
         });
 

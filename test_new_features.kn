@@ -1,0 +1,72 @@
+// Test new features: product types, union types, constructors
+
+// Product type definition
+type User = User(id: Int, name: String, email: String, age: Int)
+
+// Union type definition
+type Result = Ok(value: String) | Error(message: String)
+
+// Another union type
+type Shape = Circle(radius: Float) | Rectangle(width: Float, height: Float)
+
+// Create user with constructor
+user1 = User(id: 1, name: "Alice", email: "alice@test.com", age: 25)
+
+// Create result values
+success = Ok(value: "Operation completed")
+failure = Error(message: "Something went wrong")
+
+// Function with mutability on parameters
+update_user_name(live user: User, new_name: String): User {
+    User(id: user.id, name: new_name, email: user.email, age: user.age)
+}
+
+// Pattern matching with product types
+process_result(result: Result) {
+    case result {
+        Ok(value) -> {
+            print("Success: " + value)
+            value
+        }
+        Error(message) -> {
+            print("Error: " + message)
+            ""
+        }
+    }
+}
+
+// Pattern matching with shapes
+calculate_area(shape: Shape) {
+    case shape {
+        Circle(radius) -> 3.14159 * radius * radius
+        Rectangle(width, height) -> width * height
+    }
+}
+
+// Variable with type annotation
+live counter: Int = 0
+
+// Keep constant
+keep MAX_USERS = 1000
+
+// Test the features
+main() {
+    // Constructor usage
+    alice = User(id: 1, name: "Alice", email: "alice@example.com", age: 30)
+
+    // Union type usage
+    result = Ok(value: "Hello World")
+    message = process_result(result)
+
+    // Shape calculation
+    circle = Circle(radius: 5.0)
+    area = calculate_area(circle)
+
+    // Mutability test
+    counter = counter + 1
+
+    print("User: " + alice.name)
+    print("Message: " + message)
+    print("Area: " + area)
+    print("Counter: " + counter)
+}

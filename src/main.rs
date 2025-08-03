@@ -104,6 +104,127 @@ fn main() {
         Err(errors) => println!("Function type parse errors: {:?}", errors),
     }
 
+    // Test product type definition
+    println!("\n=== Testing Product Types ===");
+    let product_type = "type User = User(id: Int, name: String, email: String)";
+    let product_tokens: Vec<Token> = Token::lexer(product_type)
+        .collect::<Result<Vec<_>, _>>()
+        .unwrap();
+    println!("Product type tokens: {:?}", product_tokens);
+
+    let product_parser = parser::parser();
+    match product_parser.parse(product_tokens) {
+        Ok(program) => println!("✅ Product type parsed: {:?}", program),
+        Err(errors) => println!("❌ Product type errors: {:?}", errors),
+    }
+
+    // Test union type definition
+    let union_type = "type Result = Ok(value: String) | Error(message: String)";
+    let union_tokens: Vec<Token> = Token::lexer(union_type)
+        .collect::<Result<Vec<_>, _>>()
+        .unwrap();
+    println!("\nUnion type tokens: {:?}", union_tokens);
+
+    let union_parser = parser::parser();
+    match union_parser.parse(union_tokens) {
+        Ok(program) => println!("✅ Union type parsed: {:?}", program),
+        Err(errors) => println!("❌ Union type errors: {:?}", errors),
+    }
+
+    // Test constructor expression
+    let constructor_expr = r#"user = User(id: 1, name: "Alice", email: "alice@test.com")"#;
+    let constructor_tokens: Vec<Token> = Token::lexer(constructor_expr)
+        .collect::<Result<Vec<_>, _>>()
+        .unwrap();
+    println!("\nConstructor tokens: {:?}", constructor_tokens);
+
+    match parser::parse_with_manual_fallback(constructor_tokens) {
+        Ok(program) => println!("✅ Constructor expression parsed: {:?}", program),
+        Err(errors) => println!("❌ Constructor errors: {:?}", errors),
+    }
+
+    // Test function with parameter mutability
+    let param_mut = "update_cache(live cache: Map): Unit = cache";
+    let param_mut_tokens: Vec<Token> = Token::lexer(param_mut)
+        .collect::<Result<Vec<_>, _>>()
+        .unwrap();
+    println!("\nParameter mutability tokens: {:?}", param_mut_tokens);
+
+    let param_mut_parser = parser::parser();
+    match param_mut_parser.parse(param_mut_tokens) {
+        Ok(program) => println!("✅ Parameter mutability parsed: {:?}", program),
+        Err(errors) => println!("❌ Parameter mutability errors: {:?}", errors),
+    }
+
+    // Test simpler parameter mutability
+    let simple_param = "test(live x: Int) = x";
+    let simple_tokens: Vec<Token> = Token::lexer(simple_param)
+        .collect::<Result<Vec<_>, _>>()
+        .unwrap();
+    println!("\nSimple parameter mutability tokens: {:?}", simple_tokens);
+
+    let simple_parser = parser::parser();
+    match simple_parser.parse(simple_tokens) {
+        Ok(program) => println!("✅ Simple parameter mutability parsed: {:?}", program),
+        Err(errors) => println!("❌ Simple parameter mutability errors: {:?}", errors),
+    }
+
+    // Test variable type annotations
+    println!("\n=== Testing Variable Type Annotations ===");
+    let typed_var = "counter: Int = 42";
+    let typed_var_tokens: Vec<Token> = Token::lexer(typed_var)
+        .collect::<Result<Vec<_>, _>>()
+        .unwrap();
+    println!("Typed variable tokens: {:?}", typed_var_tokens);
+
+    let typed_var_parser = parser::parser();
+    match typed_var_parser.parse(typed_var_tokens) {
+        Ok(program) => println!("✅ Typed variable parsed: {:?}", program),
+        Err(errors) => println!("❌ Typed variable errors: {:?}", errors),
+    }
+
+    // Test live variable with type annotation
+    let live_typed_var = "live cache: Map = {}";
+    let live_typed_tokens: Vec<Token> = Token::lexer(live_typed_var)
+        .collect::<Result<Vec<_>, _>>()
+        .unwrap();
+    println!("\nLive typed variable tokens: {:?}", live_typed_tokens);
+
+    match parser::parse_with_manual_fallback(live_typed_tokens) {
+        Ok(program) => println!("✅ Live typed variable parsed: {:?}", program),
+        Err(errors) => println!("❌ Live typed variable errors: {:?}", errors),
+    }
+
+    // Test destructuring assignment
+    println!("\n=== Testing Destructuring Assignment ===");
+    let destructuring = "Point(x, y) = get_position()";
+    let destructuring_tokens: Vec<Token> = Token::lexer(destructuring)
+        .collect::<Result<Vec<_>, _>>()
+        .unwrap();
+    println!("Destructuring tokens: {:?}", destructuring_tokens);
+
+    let destructuring_parser = parser::parser();
+    match destructuring_parser.parse(destructuring_tokens) {
+        Ok(program) => println!("✅ Destructuring assignment parsed: {:?}", program),
+        Err(errors) => println!("❌ Destructuring assignment errors: {:?}", errors),
+    }
+
+    // Test simple destructuring
+    let simple_destructuring = "User(name, age) = user_data";
+    let simple_destructuring_tokens: Vec<Token> = Token::lexer(simple_destructuring)
+        .collect::<Result<Vec<_>, _>>()
+        .unwrap();
+    println!(
+        "\nSimple destructuring tokens: {:?}",
+        simple_destructuring_tokens
+    );
+
+    let simple_destructuring_parser = parser::parser();
+    match simple_destructuring_parser.parse(simple_destructuring_tokens) {
+        Ok(program) => println!("✅ Simple destructuring parsed: {:?}", program),
+        Err(errors) => println!("❌ Simple destructuring errors: {:?}", errors),
+    }
+
     // Test direct manual parser for case expressions
     println!("\n=== Testing Manual Parser ===");
 
@@ -292,8 +413,12 @@ fn main() {
     println!("✅ Hybrid parser integration (working!)");
     println!("✅ When expressions (manual parser ready)");
     println!("");
-    println!("🚧 Union/Sum types: type Result = Ok(T) | Error(E)");
-    println!("🚧 Destructuring assignment: Point(x, y) = pos");
+    println!("✅ Union/Sum types: type Result = Ok(T) | Error(E)");
+    println!("✅ Product types: type User = User(id: Int, name: String)");
+    println!("✅ Constructor expressions: User(id: 1, name: \"Alice\")");
+    println!("✅ Parameter mutability: func(live param: Type)");
+    println!("✅ Type annotations on variables: var: Type = value");
+    println!("✅ Destructuring assignment: Point(x, y) = pos");
     println!("🚧 Advanced patterns: Customer(User(_, *, Email(e), age), ...)");
     println!("🚧 Block expressions with implicit returns");
 }
