@@ -410,7 +410,7 @@ impl ManualParser {
                 let name = name.clone();
                 self.advance();
 
-                // Check for function call
+                // Check for function call or method call
                 if self.check_token(&Token::LeftParen) {
                     self.advance(); // consume '('
 
@@ -430,10 +430,62 @@ impl ManualParser {
 
                     self.expect_token(&Token::RightParen, "Expected ')' after function arguments")?;
 
-                    Ok(Expression::Call {
+                    let mut expr = Expression::Call {
                         function: Box::new(Expression::Identifier(name)),
                         args,
-                    })
+                    };
+
+                    // Check for chained method calls
+                    while self.check_token(&Token::Dot) {
+                        self.advance(); // consume '.'
+
+                        if let Some(Token::Identifier(method)) = self.current_token() {
+                            let method = method.clone();
+                            self.advance();
+
+                            if self.check_token(&Token::LeftParen) {
+                                self.advance(); // consume '('
+
+                                let mut method_args = Vec::new();
+                                while !self.check_token(&Token::RightParen) && !self.is_at_end() {
+                                    method_args.push(self.parse_expression()?);
+
+                                    if self.check_token(&Token::Comma) {
+                                        self.advance();
+                                    } else if !self.check_token(&Token::RightParen) {
+                                        return Err(ParseError {
+                                            message: "Expected ',' or ')' in method call"
+                                                .to_string(),
+                                            position: self.position,
+                                        });
+                                    }
+                                }
+
+                                self.expect_token(
+                                    &Token::RightParen,
+                                    "Expected ')' after method arguments",
+                                )?;
+
+                                expr = Expression::MethodCall {
+                                    object: Box::new(expr),
+                                    method,
+                                    args: method_args,
+                                };
+                            } else {
+                                expr = Expression::FieldAccess {
+                                    object: Box::new(expr),
+                                    field: method,
+                                };
+                            }
+                        } else {
+                            return Err(ParseError {
+                                message: "Expected method name after '.'".to_string(),
+                                position: self.position,
+                            });
+                        }
+                    }
+
+                    Ok(expr)
                 } else {
                     Ok(Expression::Identifier(name))
                 }
@@ -446,6 +498,49 @@ impl ManualParser {
                     "Expected ')' after parenthesized expression",
                 )?;
                 Ok(expr)
+            }
+            Some(Token::LeftBracket) => {
+                self.advance(); // consume '['
+                let mut elements = Vec::new();
+
+                while !self.check_token(&Token::RightBracket) && !self.is_at_end() {
+                    elements.push(self.parse_expression()?);
+
+                    if self.check_token(&Token::Comma) {
+                        self.advance();
+                    } else if !self.check_token(&Token::RightBracket) {
+                        return Err(ParseError {
+                            message: "Expected ',' or ']' in list literal".to_string(),
+                            position: self.position,
+                        });
+                    }
+                }
+
+                self.expect_token(&Token::RightBracket, "Expected ']' after list elements")?;
+                Ok(Expression::List { elements })
+            }
+            Some(Token::LeftBrace) => {
+                self.advance(); // consume '{'
+                let mut pairs = Vec::new();
+
+                while !self.check_token(&Token::RightBrace) && !self.is_at_end() {
+                    let key = self.parse_expression()?;
+                    self.expect_token(&Token::Colon, "Expected ':' after map key")?;
+                    let value = self.parse_expression()?;
+                    pairs.push((key, value));
+
+                    if self.check_token(&Token::Comma) {
+                        self.advance();
+                    } else if !self.check_token(&Token::RightBrace) {
+                        return Err(ParseError {
+                            message: "Expected ',' or '}' in map literal".to_string(),
+                            position: self.position,
+                        });
+                    }
+                }
+
+                self.expect_token(&Token::RightBrace, "Expected '}' after map elements")?;
+                Ok(Expression::Map { pairs })
             }
             _ => Err(ParseError {
                 message: "Expected expression".to_string(),

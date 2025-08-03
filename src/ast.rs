@@ -38,8 +38,16 @@ pub struct TypeDef {
 }
 
 #[derive(Debug, Clone, PartialEq)]
+pub enum Mutability {
+    Immutable,
+    Live,
+    Keep,
+}
+
+#[derive(Debug, Clone, PartialEq)]
 pub struct VariableDecl {
     pub name: String,
+    pub mutability: Mutability,
     pub type_annotation: Option<Type>,
     pub value: Expression,
 }
@@ -88,6 +96,17 @@ pub enum Expression {
         condition: Box<Expression>,
         then_expr: Box<Expression>,
         else_expr: Box<Expression>,
+    },
+    List {
+        elements: Vec<Expression>,
+    },
+    Map {
+        pairs: Vec<(Expression, Expression)>,
+    },
+    MethodCall {
+        object: Box<Expression>,
+        method: String,
+        args: Vec<Expression>,
     },
 }
 

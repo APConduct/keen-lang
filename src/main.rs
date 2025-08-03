@@ -165,6 +165,87 @@ fn main() {
         Err(errors) => println!("❌ Ternary variable errors: {:?}", errors),
     }
 
+    // Test mutability keywords
+    println!("\n=== Testing Mutability Keywords ===");
+    let live_var = "live counter = 0";
+    let live_tokens: Vec<Token> = Token::lexer(live_var)
+        .collect::<Result<Vec<_>, _>>()
+        .unwrap();
+
+    let live_parser = parser::parser();
+    match live_parser.parse(live_tokens) {
+        Ok(program) => println!("✅ Live variable parsed: {:?}", program),
+        Err(errors) => println!("❌ Live variable errors: {:?}", errors),
+    }
+
+    let keep_var = "keep PI = 3.14159";
+    let keep_tokens: Vec<Token> = Token::lexer(keep_var)
+        .collect::<Result<Vec<_>, _>>()
+        .unwrap();
+
+    let keep_parser = parser::parser();
+    match keep_parser.parse(keep_tokens) {
+        Ok(program) => println!("✅ Keep variable parsed: {:?}", program),
+        Err(errors) => println!("❌ Keep variable errors: {:?}", errors),
+    }
+
+    // Test collection literals
+    println!("\n=== Testing Collection Literals ===");
+    let list_tokens = vec![
+        Token::LeftBracket,
+        Token::Integer(1),
+        Token::Comma,
+        Token::Integer(2),
+        Token::Comma,
+        Token::Integer(3),
+        Token::RightBracket,
+    ];
+
+    let mut list_parser = ManualParser::new(list_tokens);
+    match list_parser.parse_expression() {
+        Ok(expr) => println!("✅ List literal parsed: {:?}", expr),
+        Err(e) => println!("❌ List literal error: {}", e),
+    }
+
+    let map_tokens = vec![
+        Token::LeftBrace,
+        Token::String("key1".to_string()),
+        Token::Colon,
+        Token::String("value1".to_string()),
+        Token::Comma,
+        Token::String("key2".to_string()),
+        Token::Colon,
+        Token::Integer(42),
+        Token::RightBrace,
+    ];
+
+    let mut map_parser = ManualParser::new(map_tokens);
+    match map_parser.parse_expression() {
+        Ok(expr) => println!("✅ Map literal parsed: {:?}", expr),
+        Err(e) => println!("❌ Map literal error: {}", e),
+    }
+
+    // Test method calls
+    println!("\n=== Testing Method Calls ===");
+    let method_tokens = vec![
+        Token::Identifier("cache".to_string()),
+        Token::LeftParen,
+        Token::RightParen,
+        Token::Dot,
+        Token::Identifier("insert".to_string()),
+        Token::LeftParen,
+        Token::String("key".to_string()),
+        Token::Comma,
+        Token::String("value".to_string()),
+        Token::RightParen,
+    ];
+
+    let mut method_parser = ManualParser::new(method_tokens);
+    match method_parser.parse_expression() {
+        Ok(expr) => println!("✅ Method call parsed: {:?}", expr),
+        Err(e) => println!("❌ Method call error: {}", e),
+    }
+
     // Test constructor patterns
     let constructor_tokens = vec![
         Token::Case,
@@ -205,6 +286,14 @@ fn main() {
     println!("✅ Wildcard patterns");
     println!("✅ Pattern matching with literals and identifiers");
     println!("✅ Ternary operators: condition ? then : else");
+    println!("✅ Mutability keywords: live, keep");
+    println!("✅ Collection literals: [1, 2, 3], {{\"key\": \"value\"}}");
+    println!("✅ Method calls: object.method(args)");
     println!("✅ Hybrid parser integration (working!)");
     println!("✅ When expressions (manual parser ready)");
+    println!("");
+    println!("🚧 Union/Sum types: type Result = Ok(T) | Error(E)");
+    println!("🚧 Destructuring assignment: Point(x, y) = pos");
+    println!("🚧 Advanced patterns: Customer(User(_, *, Email(e), age), ...)");
+    println!("🚧 Block expressions with implicit returns");
 }

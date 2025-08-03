@@ -1,6 +1,6 @@
 use crate::ast::{
-    BinaryOp, Expression, Function, FunctionBody, Item, Literal, Parameter, Program, Statement,
-    Type, TypeDef, VariableDecl,
+    BinaryOp, Expression, Function, FunctionBody, Item, Literal, Mutability, Parameter, Program,
+    Statement, Type, TypeDef, VariableDecl,
 };
 use crate::lexer::Token;
 use crate::manual_parser::ManualParser;
@@ -86,15 +86,26 @@ fn type_def_parser() -> impl Parser<Token, Item, Error = Simple<Token>> {
 fn variable_decl_parser() -> impl Parser<Token, VariableDecl, Error = Simple<Token>> {
     let ident = select! { Token::Identifier(name) => name };
 
-    ident
+    let mutability = choice((
+        just(Token::Live).to(Mutability::Live),
+        just(Token::Keep).to(Mutability::Keep),
+    ))
+    .or_not()
+    .map(|m| m.unwrap_or(Mutability::Immutable));
+
+    mutability
+        .then(ident)
         .then(just(Token::Colon).ignore_then(type_parser()).or_not())
         .then_ignore(just(Token::Assign))
         .then(expression_parser())
-        .map(|((name, type_annotation), value)| VariableDecl {
-            name,
-            type_annotation,
-            value,
-        })
+        .map(
+            |(((mutability, name), type_annotation), value)| VariableDecl {
+                name,
+                mutability,
+                type_annotation,
+                value,
+            },
+        )
 }
 
 fn type_parser() -> impl Parser<Token, Type, Error = Simple<Token>> {
@@ -395,6 +406,7 @@ fn parse_variable_with_complex_expr(tokens: Vec<Token>) -> Result<Item, String> 
 
     Ok(Item::VariableDecl(VariableDecl {
         name,
+        mutability: Mutability::Immutable, // Default for hybrid parser
         type_annotation: None,
         value,
     }))

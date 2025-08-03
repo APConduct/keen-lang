@@ -36,6 +36,10 @@ pub enum Token {
     Distinct,
     #[token("type")]
     Type,
+    #[token("live")]
+    Live,
+    #[token("keep")]
+    Keep,
 
     // Operators and punctuation
     #[token("=")]
