@@ -1,0 +1,52 @@
+// HTTP server handler
+handle_user_request(request) {
+    user_id = extract_user_id(request.headers)
+
+    case user_id {
+        Some(id) -> {
+            user = fetch_user(id)
+            case user {
+                Some(u) -> {
+                    when request.method {
+                        "GET" -> serialize_user(u)
+                        "PUT" -> update_user(u, request.body)
+                        "DELETE" -> {
+                            delete_user(id)
+                            success_response()
+                        }
+                        _ -> method_not_allowed()
+                    }
+                }
+                None -> not_found_response()
+            }
+        }
+        None -> unauthorized_response()
+    }
+}
+
+// Data processing pipeline
+analyze_sales_data(data) {
+    cleaned = data
+        .filter(|record| record.amount > 0)
+        .map(|record| normalize_currency(record))
+
+    summary = case cleaned.length {
+        0 -> empty_summary()
+        _ -> {
+            total = cleaned.sum(|r| r.amount)
+            average = total / cleaned.length
+            top_products = cleaned
+                .group_by(|r| r.product_id)
+                .sort_by(|group| -group.total_sales)
+                .take(10)
+
+            SalesSummary {
+                total: total,
+                average: average,
+                top_products: top_products
+            }
+        }
+    }
+
+    summary
+}

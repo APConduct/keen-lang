@@ -1,0 +1,57 @@
+// Higher-order functions
+map(list, func) {
+    case list {
+        [] -> []
+        [head, ...tail] -> [func(head), ...map(tail, func)]
+    }
+}
+
+// Function types
+apply_twice(f: (Int) -> Int, x: Int): Int = f(f(x))
+
+// Closures and local functions
+create_counter(start: Int) {
+    count = start
+
+    increment() {
+        count = count + 1
+        count
+    }
+
+    increment
+}
+
+// Generic-like behavior through structural typing
+sort_by(items, key_func) {
+    // Works with any collection and any key function
+    // Type system ensures key_func returns comparable type
+    bubble_sort(items, |a, b| key_func(a) < key_func(b))
+}
+
+// Complex data structures
+type Tree =
+    | Leaf(value: Int)
+    | Node(left: Tree, right: Tree, value: Int)
+
+tree_sum(tree) {
+    case tree {
+        Leaf(value) -> value
+        Node(left, right, value) -> tree_sum(left) + tree_sum(right) + value
+    }
+}
+
+// Error handling
+divide(a: Float, b: Float) {
+    when b {
+        == 0.0 -> Error("Division by zero")
+        _ -> Ok(a / b)
+    }
+}
+
+// Chaining operations
+process_data(input) {
+    validate(input)
+        .then(|data| transform(data))
+        .then(|data| enrich(data))
+        .then(|data| save(data))
+}

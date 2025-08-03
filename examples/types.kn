@@ -1,0 +1,24 @@
+// Basic type alias
+type UserId = Int
+
+// Distinct nominal type
+type ProductId = distinct Int
+type Temperature = distinct Float
+
+// Structurally typed entity
+type Entity = {
+    name: String
+    age: Int
+}
+
+// Structural typing works automatically
+print_name(entity) {
+    entity.name  // Works with any type having .name field
+}
+
+// Usage
+user = { name: "Bob", age: 30 }
+product = { name: "Widget", price: 19.99 }
+
+print_name(user)     // OK - has .name
+print_name(product)  // OK - has .name

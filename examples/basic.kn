@@ -1,0 +1,18 @@
+// Function with explicit types
+add(a: Int, b: Int): Int {
+    a + b  // Implicit return
+}
+
+// Single expression function
+multiply(x: Int, y: Int): Int = x * y
+
+// Type inference on parameters and return
+square(n) = n * n
+
+// Variable with type inference
+some_val = false
+pi = 3.14159
+name = "Alice"
+
+// Variable with explicit type
+user_id: UserId = UserId(12345)

@@ -1,0 +1,44 @@
+// Case expression (exhaustive pattern matching)
+process_result(result) {
+    case result {
+        Ok(value) -> value * 2
+        Error(msg) -> {
+            log_error(msg)
+            0
+        }
+    }
+}
+
+// Pattern matching with destructuring
+handle_request(request) {
+    case request {
+        Get(path) -> serve_file(path)
+        Post(path, data) -> {
+            validate(data)
+            process_post(path, data)
+        }
+        Delete(path) -> remove_file(path)
+        _ -> error_response("Unknown method")
+    }
+}
+
+// When expression (non-exhaustive conditional matching)
+calculate_grade(score) {
+    when score {
+        >= 90 -> "A"
+        >= 80 -> "B"
+        >= 70 -> "C"
+        >= 60 -> "D"
+        _ -> "F"
+    }
+}
+
+// Nested patterns
+evaluate_expr(expr) {
+    case expr {
+        Literal(n) -> n
+        Add(Literal(a), Literal(b)) -> a + b
+        Add(left, right) -> evaluate_expr(left) + evaluate_expr(right)
+        Multiply(left, right) -> evaluate_expr(left) * evaluate_expr(right)
+    }
+}
