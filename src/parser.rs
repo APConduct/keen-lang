@@ -3,6 +3,7 @@ use crate::ast::{
     Type, TypeDef, VariableDecl,
 };
 use crate::lexer::Token;
+use crate::manual_parser::ManualParser;
 use chumsky::prelude::*;
 
 pub fn parser() -> impl Parser<Token, Program, Error = Simple<Token>> {
@@ -236,6 +237,161 @@ fn expression_parser() -> impl Parser<Token, Expression, Error = Simple<Token>> 
     })
 }
 
-// Note: Case/When expressions and pattern matching are not implemented
-// due to complex parser combinator limitations that cause clone issues.
-// These could be implemented in a future version with a different parsing approach.
+// Hybrid parser that integrates manual parsing for complex expressions
+pub fn parse_with_manual_fallback(tokens: Vec<Token>) -> Result<Program, Vec<String>> {
+    // First, detect if we have case or when expressions
+    if has_complex_expressions(&tokens) {
+        parse_hybrid(tokens)
+    } else {
+        // Use regular chumsky parser
+        let chumsky_parser = parser();
+        chumsky_parser
+            .parse(tokens)
+            .map_err(|errors| errors.into_iter().map(|e| format!("{:?}", e)).collect())
+    }
+}
+
+fn has_complex_expressions(tokens: &[Token]) -> bool {
+    tokens
+        .iter()
+        .any(|token| matches!(token, Token::Case | Token::When))
+}
+
+fn parse_hybrid(tokens: Vec<Token>) -> Result<Program, Vec<String>> {
+    let mut items = Vec::new();
+    let mut i = 0;
+
+    while i < tokens.len() {
+        // Try to parse an item
+        match parse_item_hybrid(&tokens, &mut i) {
+            Ok(item) => items.push(item),
+            Err(e) => return Err(vec![e]),
+        }
+    }
+
+    Ok(Program { items })
+}
+
+fn parse_item_hybrid(tokens: &[Token], position: &mut usize) -> Result<Item, String> {
+    let start = *position;
+
+    // Find the end of this item (look for next top-level construct or end)
+    let end = find_item_end(tokens, start);
+
+    // Prevent infinite loops
+    if end <= start {
+        return Err("Could not find item end".to_string());
+    }
+
+    let item_tokens = tokens[start..end].to_vec();
+    *position = end; // Update position immediately
+
+    // Check if this is a variable declaration with case/when
+    if is_variable_decl_with_complex_expr(&item_tokens) {
+        parse_variable_with_complex_expr(item_tokens)
+    } else {
+        // Use regular chumsky parser for this item
+        let chumsky_parser = parser();
+        match chumsky_parser.parse(item_tokens) {
+            Ok(mut program) => {
+                if let Some(item) = program.items.pop() {
+                    Ok(item)
+                } else {
+                    Err("Failed to parse item".to_string())
+                }
+            }
+            Err(_) => Err("Failed to parse item with chumsky".to_string()),
+        }
+    }
+}
+
+fn find_item_end(tokens: &[Token], start: usize) -> usize {
+    if start >= tokens.len() {
+        return tokens.len();
+    }
+
+    let mut i = start;
+    let mut brace_depth = 0;
+    let mut paren_depth = 0;
+
+    // Simple heuristic: look for assignment and find the complete expression
+    while i < tokens.len() {
+        match &tokens[i] {
+            Token::Assign if brace_depth == 0 && paren_depth == 0 => {
+                // Found assignment, now find the end of the value expression
+                i += 1; // skip the '='
+                while i < tokens.len() {
+                    match &tokens[i] {
+                        Token::LeftBrace => brace_depth += 1,
+                        Token::RightBrace => {
+                            brace_depth -= 1;
+                            if brace_depth == 0 {
+                                return i + 1; // Include the closing brace
+                            }
+                        }
+                        Token::LeftParen => paren_depth += 1,
+                        Token::RightParen => paren_depth -= 1,
+                        _ => {}
+                    }
+                    i += 1;
+                }
+                return tokens.len();
+            }
+            Token::LeftBrace => brace_depth += 1,
+            Token::RightBrace => brace_depth -= 1,
+            Token::LeftParen => paren_depth += 1,
+            Token::RightParen => paren_depth -= 1,
+            _ => {}
+        }
+        i += 1;
+    }
+    tokens.len()
+}
+
+fn is_variable_decl_with_complex_expr(tokens: &[Token]) -> bool {
+    // Check if this is a variable declaration (identifier = ...)
+    if tokens.len() >= 3 {
+        if let (Some(Token::Identifier(_)), Some(Token::Assign)) = (tokens.get(0), tokens.get(1)) {
+            // Check if the expression contains case or when
+            return tokens[2..]
+                .iter()
+                .any(|t| matches!(t, Token::Case | Token::When));
+        }
+    }
+    false
+}
+
+fn parse_variable_with_complex_expr(tokens: Vec<Token>) -> Result<Item, String> {
+    if tokens.len() < 3 {
+        return Err("Invalid variable declaration".to_string());
+    }
+
+    let name = match &tokens[0] {
+        Token::Identifier(n) => n.clone(),
+        _ => return Err("Expected identifier".to_string()),
+    };
+
+    if !matches!(tokens[1], Token::Assign) {
+        return Err("Expected assignment".to_string());
+    }
+
+    // Parse the expression part with manual parser
+    let expr_tokens = tokens[2..].to_vec();
+
+    let value = if matches!(expr_tokens.first(), Some(Token::Case)) {
+        let mut manual_parser = ManualParser::new(expr_tokens);
+        manual_parser.parse_case_expression()
+    } else if matches!(expr_tokens.first(), Some(Token::When)) {
+        let mut manual_parser = ManualParser::new(expr_tokens);
+        manual_parser.parse_when_expression()
+    } else {
+        return Err("Expected case or when expression".to_string());
+    }
+    .map_err(|e| e.message)?;
+
+    Ok(Item::VariableDecl(VariableDecl {
+        name,
+        type_annotation: None,
+        value,
+    }))
+}

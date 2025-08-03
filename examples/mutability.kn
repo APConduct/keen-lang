@@ -1,0 +1,44 @@
+// Immutable by default
+count = 0
+name = “Alice”
+data = load_config()
+
+// Explicit mutability with ‘live’
+live counter = 0
+live cache = {}
+live position = Point(0.0, 0.0)
+
+// Usage
+counter = counter + 1           // OK
+cache.insert(“key”, “value”)    // OK
+position = Point(1.0, 2.0)      // OK
+
+// This would error:
+// count = count + 1            // Error: cannot reassign immutable variable
+
+// Function parameters
+process_data(data) {
+// data is immutable here
+transformed = transform(data)
+transformed
+}
+
+update_cache(live cache, key, value) {
+// cache can be modified
+cache.insert(key, value)
+}
+
+// Live in different contexts
+live results = []
+live user_state = LoggedOut
+
+case user_input {
+    Login(credentials) -> {
+        user_state = authenticate(credentials)
+        results.push(“Login attempt”)
+    }
+    Logout -> {
+    user_state = LoggedOut
+    results.clear()
+    }
+}

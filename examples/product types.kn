@@ -29,32 +29,29 @@ type Option = Some(value: Any) | None
 
 // These functions only accept their specific nominal types
 create_user(name: String, email_str: String, age: Int): Result {
-email = Email(email_str)
-id = generate_user_id()
+    email = Email(email_str)
+    id = generate_user_id()
 
-```
-when age {
-    < 0 -> Error("Age cannot be negative")
-    > 150 -> Error("Age seems unrealistic")
-    _ -> Ok(User(id, name, email, age))
-}
-```
-
+    when age {
+        < 0 -> Error("Age cannot be negative")
+        > 150 -> Error("Age seems unrealistic")
+        _ -> Ok(User(id, name, email, age))
+    }
 }
 
 process_order(order: Order): Result {
-case fetch_user(order.user) {
-Some(user) -> {
-total = calculate_total(order.items)
-charge_user(user, total)
-}
-None -> Error(“User not found”)
-}
+    case fetch_user(order.user) {
+        Some(user) -> {
+            total = calculate_total(order.items)
+            charge_user(user, total)
+        }
+        None -> Error(“User not found”)
+    }
 }
 
 // Nominal types prevent mixing up IDs
 transfer_money(from: UserId, to: UserId, amount: Float) {
-// …
+    // …
 }
 
 // This would be a compile error:
@@ -68,10 +65,10 @@ transfer_money(from: UserId, to: UserId, amount: Float) {
 distance(p1, p2): Float = sqrt((p1.x - p2.x)^2 + (p1.y - p2.y)^2)
 
 translate(shape, offset) {
-// Works with any shape that has .x and .y
-shape.x = shape.x + offset.x
-shape.y = shape.y + offset.y
-shape
+    // Works with any shape that has .x and .y
+    shape.x = shape.x + offset.x
+    shape.y = shape.y + offset.y
+    shape
 }
 
 // All of these work because of structural compatibility:
@@ -91,35 +88,31 @@ translated_size = translate(size, vector)    // OK
 
 // Destructuring in case expressions
 handle_user_request(user: User, request) {
-case user {
-User(id, name, email, age) -> {
-log(“Processing request for user: “ + name)
-
-```
-        case request {
-            GetProfile -> serialize_user(user)
-            UpdateEmail(new_email) -> {
-                updated_user = User(id, name, Email(new_email), age)
-                save_user(updated_user)
-            }
-            DeleteAccount -> {
-                when age {
-                    < 18 -> Error("Minors cannot delete accounts")
-                    _ -> delete_user(id)
+    case user {
+        User(id, name, email, age) -> {
+            log(“Processing request for user: “ + name)
+            case request {
+                GetProfile -> serialize_user(user)
+                UpdateEmail(new_email) -> {
+                    updated_user = User(id, name, Email(new_email), age)
+                    save_user(updated_user)
+                }
+                DeleteAccount -> {
+                    when age {
+                        < 18 -> Error("Minors cannot delete accounts")
+                        _ -> delete_user(id)
+                    }
                 }
             }
         }
     }
 }
-```
-
-}
 
 // Partial destructuring
 get_user_name(user) {
-case user {
-User(_, name, _, _) -> name  // Only care about name
-}
+    case user {
+        User(_, name, _, _) -> name  // Only care about name
+    }
 }
 
 // Or with field access (structural)
@@ -135,28 +128,28 @@ type Customer = Customer(user: User, address: Address, orders: List[Order])
 
 // Deep pattern matching
 validate_customer(customer) {
-case customer {
-Customer(User(_, *, Email(email), age), Address(*, _, zip), orders) -> {
-when {
-age < 18 -> Error(“Must be 18 or older”)
-!valid_email(email) -> Error(“Invalid email”)
-!valid_zip(zip) -> Error(“Invalid zip code”)
-orders.length == 0 -> Warning(“No order history”)
-_ -> Ok(customer)
-}
-}
-}
+    case customer {
+        Customer(User(_, *, Email(email), age), Address(*, _, zip), orders) -> {
+            when {
+                age < 18 -> Error(“Must be 18 or older”)
+                !valid_email(email) -> Error(“Invalid email”)
+                !valid_zip(zip) -> Error(“Invalid zip code”)
+                orders.length == 0 -> Warning(“No order history”)
+                _ -> Ok(customer)
+            }
+        }
+    }
 }
 
 // Generic-like behavior through structural typing
 serialize_entity(entity) {
-// Works with any type that has .name field
-“{ "name": "” + entity.name + “" }”
+    // Works with any type that has .name field
+    fmt “{ "name": "” + entity.name + “" }” // Potential syntax for string interpolation
 }
 
 live entities = [
-User(UserId(1), “Alice”, Email(“alice@test.com”), 25),
-Product(ProductId(100), “Widget”, 19.99, “Tools”)
+    User(UserId(1), “Alice”, Email(“alice@test.com”), 25),
+    Product(ProductId(100), “Widget”, 19.99, “Tools”)
 ]
 
 // Both User and Product have .name, so this works:
@@ -175,9 +168,9 @@ User(user_id, username, _, _) = current_user
 
 // Update patterns (functional style)
 update_user_age(user, new_age) {
-case user {
-User(id, name, email, _) -> User(id, name, email, new_age)
-}
+    case user {
+    User(id, name, email, _) -> User(id, name, email, new_age)
+    }
 }
 
 // Or with potential syntax sugar:

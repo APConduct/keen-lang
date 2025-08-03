@@ -1,5 +1,5 @@
 use chumsky::Parser;
-use keen::{lexer::Token, parser};
+use keen::{lexer::Token, manual_parser::ManualParser, parser};
 use logos::Logos;
 
 fn main() {
@@ -104,6 +104,65 @@ fn main() {
         Err(errors) => println!("Function type parse errors: {:?}", errors),
     }
 
+    // Test direct manual parser for case expressions
+    println!("\n=== Testing Manual Parser ===");
+
+    let manual_case_tokens = vec![
+        Token::Case,
+        Token::Identifier("x".to_string()),
+        Token::LeftBrace,
+        Token::Integer(42),
+        Token::Arrow,
+        Token::String("answer".to_string()),
+        Token::Underscore,
+        Token::Arrow,
+        Token::String("other".to_string()),
+        Token::RightBrace,
+    ];
+
+    let mut manual_parser = ManualParser::new(manual_case_tokens);
+    match manual_parser.parse_case_expression() {
+        Ok(expr) => println!("✅ Case expression parsed: {:?}", expr),
+        Err(e) => println!("❌ Manual parser error: {}", e),
+    }
+
+    // Test simple hybrid parser
+    println!("\n=== Testing Fixed Hybrid Parser ===");
+    let simple_case = r#"result = case x { 1 -> "one" _ -> "other" }"#;
+    let tokens: Vec<Token> = Token::lexer(simple_case)
+        .collect::<Result<Vec<_>, _>>()
+        .unwrap();
+
+    match parser::parse_with_manual_fallback(tokens) {
+        Ok(program) => println!("✅ Hybrid parser success: {:?}", program),
+        Err(errors) => println!("❌ Hybrid parser errors: {:?}", errors),
+    }
+
+    // Test constructor patterns
+    let constructor_tokens = vec![
+        Token::Case,
+        Token::Identifier("result".to_string()),
+        Token::LeftBrace,
+        Token::Identifier("Some".to_string()),
+        Token::LeftParen,
+        Token::Identifier("x".to_string()),
+        Token::RightParen,
+        Token::Arrow,
+        Token::Identifier("x".to_string()),
+        Token::Identifier("None".to_string()),
+        Token::LeftParen,
+        Token::RightParen,
+        Token::Arrow,
+        Token::Integer(0),
+        Token::RightBrace,
+    ];
+
+    let mut constructor_parser = ManualParser::new(constructor_tokens);
+    match constructor_parser.parse_case_expression() {
+        Ok(expr) => println!("✅ Constructor pattern parsed: {:?}", expr),
+        Err(e) => println!("❌ Constructor parser error: {}", e),
+    }
+
     // Summary of parser capabilities
     println!("\n=== Parser Capabilities Summary ===");
     println!("✅ Variable declarations with type inference");
@@ -114,6 +173,10 @@ fn main() {
     println!("✅ Complex nested expressions");
     println!("✅ Function types in type annotations");
     println!("✅ Parenthesized expressions");
-    println!("🚧 Case/When expressions (complex parser combinator limitations)");
-    println!("🚧 Ternary operators (complex parser combinator limitations)");
+    println!("✅ Case expressions with patterns (manual parser working!)");
+    println!("✅ Constructor patterns: Some(x), None(), User(name, age)");
+    println!("✅ Wildcard patterns");
+    println!("✅ Pattern matching with literals and identifiers");
+    println!("🚧 Hybrid parser integration (needs debugging)");
+    println!("🚧 When expressions (manual parser ready)");
 }
