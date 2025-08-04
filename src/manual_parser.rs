@@ -530,6 +530,15 @@ impl ManualParser {
                     right: Box::new(right),
                 })
             }
+            Some(Token::Modulo) => {
+                self.advance();
+                let right = self.parse_simple_expression()?;
+                Ok(Expression::Binary {
+                    left: Box::new(left),
+                    op: BinaryOp::Mod,
+                    right: Box::new(right),
+                })
+            }
             _ => Ok(left), // No binary operator, return as-is
         }
     }

@@ -64,6 +64,8 @@ pub enum Token {
     Multiply,
     #[token("/")]
     Divide,
+    #[token("%")]
+    Modulo,
     #[token("->")]
     Arrow,
     #[token(":")]

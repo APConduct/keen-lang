@@ -1,7 +1,6 @@
 use crate::ast::{
-    BinaryOp, ConstructorArg, Expression, Function, FunctionBody, Item, Literal, Mutability,
-    Parameter, Pattern, ProductField, Program, Statement, Type, TypeDef, UnionVariant,
-    VariableDecl,
+    BinaryOp, Expression, Function, FunctionBody, Item, Literal, Mutability, Parameter, Pattern,
+    ProductField, Program, Statement, Type, TypeDef, UnionVariant, VariableDecl,
 };
 use crate::lexer::Token;
 use crate::manual_parser::ManualParser;
@@ -370,6 +369,7 @@ fn expression_parser() -> impl Parser<Token, Expression, Error = Simple<Token>> 
                 choice((
                     just(Token::Multiply).to(BinaryOp::Mul),
                     just(Token::Divide).to(BinaryOp::Div),
+                    just(Token::Modulo).to(BinaryOp::Mod),
                 ))
                 .then(factor)
                 .repeated(),
@@ -978,6 +978,7 @@ fn is_variable_decl_with_complex_expr(tokens: &[Token]) -> bool {
                             | Token::Pipeline
                             | Token::Pipe
                             | Token::LeftBrace
+                            | Token::LeftBracket
                     ) || match t {
                         Token::String(s) => crate::lexer::has_interpolation(s),
                         _ => false,
