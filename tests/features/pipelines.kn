@@ -126,9 +126,9 @@ conditional_pipeline = |x| x
 
 // Pipeline with side effects
 debug_pipeline = |value| value
-    |> |x| { print("Processing: {x}"); x }
+    |> |x| { print("Processing: {x}") x }
     |> double
-    |> |x| { print("Result: {x}"); x }
+    |> |x| { print("Result: {x}") x }
 
 // Pipeline operator precedence test
 precedence_test = 5 + 3
@@ -202,9 +202,9 @@ early_return_test = |value| value
     |> format
 
 // Test helper functions for pipeline operations
-validate(x) = x
+// validate(x) = x
 format_output(x) = "Output: {x}"
 log_error(x) = "Error: {x}"
 handle_unknown(x) = "Unknown: {x}"
-validate_input(x) = x
-transform_data(x) = x
+// validate_input(x) = x
+// transform_data(x) = x

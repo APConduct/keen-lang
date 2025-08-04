@@ -1,4 +1,7 @@
-test = |x| { print("hello {x}"); x }
+test = |x| { 
+    print("hello {x}")
+    x 
+}
 
 print(s) = s
 

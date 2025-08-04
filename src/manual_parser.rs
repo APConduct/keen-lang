@@ -1139,33 +1139,19 @@ impl ManualParser {
                     if brace_count == 0 {
                         // End of interpolation
                         if !interpolation_content.is_empty() {
-                            eprintln!(
-                                "DEBUG: Parsing interpolation content: '{}'",
-                                interpolation_content
-                            );
-
                             // Parse the interpolation content as an expression
                             let expr_tokens: Vec<Token> = Token::lexer(&interpolation_content)
                                 .filter_map(|result| result.ok())
                                 .collect();
-
-                            eprintln!("DEBUG: Interpolation tokens: {:?}", expr_tokens);
 
                             if !expr_tokens.is_empty() {
                                 // Parse the tokens into an expression
                                 let mut expr_parser = ManualParser::new(expr_tokens);
                                 match expr_parser.parse_expression() {
                                     Ok(expr) => {
-                                        eprintln!(
-                                            "DEBUG: Interpolation expression parsed successfully"
-                                        );
                                         parts.push(StringPart::Expression(Box::new(expr)));
                                     }
-                                    Err(e) => {
-                                        eprintln!(
-                                            "DEBUG: Interpolation parsing failed: {}",
-                                            e.message
-                                        );
+                                    Err(_) => {
                                         // If parsing fails, treat as literal
                                         parts.push(StringPart::Literal(format!(
                                             "{{{}}}",
