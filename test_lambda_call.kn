@@ -1,0 +1,31 @@
+// Test lambda execution with main function
+// This will test if lambda expressions can be called correctly
+
+// Simple lambda expressions
+add_lambda = |x, y| x + y
+double = |n| n * 2
+get_answer = || 42
+
+// Helper functions for comparison
+add_function(x, y) = x + y
+double_function(n) = n * 2
+
+// Main function to test lambda execution
+main() = {
+    // Test calling lambdas vs regular functions
+    lambda_result = add_lambda(10, 20)
+    function_result = add_function(10, 20)
+
+    // Test zero-parameter lambda
+    answer = get_answer()
+
+    // Test single-parameter lambda
+    doubled = double(5)
+
+    // Return combined result
+    lambda_result + function_result + answer + doubled
+}
+
+// Test constants
+pi = 3
+e = 2

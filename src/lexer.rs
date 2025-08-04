@@ -21,6 +21,10 @@ pub enum Token {
         let s = lex.slice();
         s[1..s.len()-1].to_owned() // Remove quotes
     })]
+    #[regex(r#"'([^'\\]|\\['\\bnfrt]|u[a-fA-F0-9]{4})*'"#, |lex| {
+        let s = lex.slice();
+        s[1..s.len()-1].to_owned() // Remove quotes
+    })]
     String(String),
 
     // Keywords

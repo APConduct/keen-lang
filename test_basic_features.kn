@@ -1,0 +1,57 @@
+// Basic Features Test - Simple test to verify what's working in Keen
+// This tests only the core features that should be supported
+
+// Simple function definitions
+add(x, y) = x + y
+double(x) = x * 2
+square(x) = x * x
+
+// Simple variable declarations
+number = 42
+greeting = "Hello"
+
+// Basic lambda expressions
+increment = |x| x + 1
+multiply_by_three = |x| x * 3
+
+// Simple pipeline operations
+simple_pipeline = 5
+    |> double
+    |> increment
+
+// Basic ternary expressions
+max_value = 10 > 5 ? 10 : 5
+check_positive = |x| x > 0 ? x : 0
+
+// Simple pipeline with ternary
+complex_test = 7
+    |> double
+    |> |x| x > 10 ? x * 2 : x / 2
+
+// Basic arithmetic expressions
+calculation = 3 + 4 * 2
+another_calc = (5 + 3) * 2
+
+// Simple conditional function
+test_conditional = |x| x > 0 ? "positive" : "non-positive"
+
+// Function with block body
+process_number(n) = {
+    doubled = n * 2
+    incremented = doubled + 1
+    incremented
+}
+
+// Simple string interpolation
+name = "World"
+message = "Hello, {name}!"
+
+// Main function
+main() = {
+    result1 = simple_pipeline
+    result2 = complex_test
+    result3 = calculation
+    result4 = process_number(5)
+
+    result1 + result2 + result3 + result4
+}

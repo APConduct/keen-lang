@@ -860,6 +860,7 @@ fn find_variable_end(tokens: &[Token], start: usize) -> usize {
     let mut paren_depth = 0;
     let mut brace_depth = 0;
     let mut bracket_depth = 0;
+    let mut question_count = 0; // Track ternary operators
 
     // Skip to assignment
     while i < tokens.len() && !matches!(tokens[i], Token::Assign) {
@@ -883,38 +884,60 @@ fn find_variable_end(tokens: &[Token], start: usize) -> usize {
             }
             Token::LeftBracket => bracket_depth += 1,
             Token::RightBracket => bracket_depth -= 1,
+            Token::Question => question_count += 1, // Count ternary operators
+            Token::Colon if question_count > 0 => question_count -= 1, // Match ternary colons
             Token::Identifier(_) if paren_depth == 0 && brace_depth == 0 && bracket_depth == 0 => {
                 // At top level, check if this looks like a real new item
                 if i + 1 < tokens.len() {
                     match (&tokens[i], tokens.get(i + 1)) {
                         // Function definition: name(
                         (Token::Identifier(_), Some(Token::LeftParen)) => {
-                            // Don't treat constructor calls as function definitions
-                            // Only treat as new function if we're at the very start of a line
-                            // and have no nested parentheses/braces
-                            if paren_depth == 0 && brace_depth == 0 && bracket_depth == 0 {
-                                // This might be a new function, but check if it's really at item boundary
-                                // Look for assignment or type annotation in the expression so far
-                                let mut has_assignment_before = false;
-                                for j in (start..i).rev() {
-                                    if matches!(tokens[j], Token::Assign) {
-                                        has_assignment_before = true;
-                                        break;
-                                    }
-                                }
-                                // Only treat as new function if we haven't seen assignment in this expression
-                                if !has_assignment_before {
-                                    return i;
+                            // Check if we're already past the assignment in a variable declaration
+                            let mut assignment_pos = None;
+                            for j in start..i {
+                                if matches!(tokens[j], Token::Assign) {
+                                    assignment_pos = Some(j);
+                                    break;
                                 }
                             }
+
+                            // If we found an assignment and we're past it, this is a new item
+                            if let Some(assign_pos) = assignment_pos {
+                                if i > assign_pos {
+                                    return i;
+                                }
+                            } else {
+                                // No assignment found, this is a new function
+                                return i;
+                            }
                         }
-                        // Variable with type: name:
-                        (Token::Identifier(_), Some(Token::Colon)) => {
-                            return i;
+                        // Variable with type: name: (but not if we're in a ternary expression)
+                        (Token::Identifier(_), Some(Token::Colon)) if question_count == 0 => {
+                            // Check if we're already past an assignment (would be a new variable)
+                            let mut found_assignment = false;
+                            for j in start..i {
+                                if matches!(tokens[j], Token::Assign) {
+                                    found_assignment = true;
+                                    break;
+                                }
+                            }
+                            if found_assignment {
+                                return i;
+                            }
                         }
                         // Simple variable: name =
                         (Token::Identifier(_), Some(Token::Assign)) => {
-                            return i;
+                            // Check if we're already past an assignment (would be a new variable)
+                            let mut found_assignment = false;
+                            for j in start..i {
+                                if matches!(tokens[j], Token::Assign) {
+                                    found_assignment = true;
+                                    break;
+                                }
+                            }
+                            if found_assignment {
+                                return i;
+                            }
                         }
                         _ => {}
                     }

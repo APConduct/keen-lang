@@ -1,0 +1,22 @@
+// Very basic math test to isolate parsing issues
+
+// Simple functions without complex features
+add(x: Int, y: Int): Int = x + y
+subtract(x: Int, y: Int): Int = x - y
+multiply(x: Int, y: Int): Int = x * y
+
+// Simple variables with types
+number: Int = 42
+pi: Float = 3.14
+
+// Simple function with ternary (no recursion)
+absolute(x: Int): Int = x >= 0 ? x : -x
+
+// Simple main function
+main(): Int = {
+    a = add(5, 3)
+    b = subtract(10, 4)
+    c = multiply(2, 6)
+
+    a + b + c
+}

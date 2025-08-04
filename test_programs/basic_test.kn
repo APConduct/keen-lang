@@ -1,0 +1,118 @@
+// Basic Test Program for Keen Language
+// Tests fundamental features to verify the language is working
+
+// Simple variables
+x = 10
+y = 20
+pi = 3.14159
+name = "Keen"
+is_active = true
+
+// Simple arithmetic function
+add(a, b) = a + b
+
+// Function with block body
+calculate(x, y) {
+    sum = x + y
+    product = x * y
+    result = sum + product
+    result
+}
+
+// Test basic expressions
+test_expressions() {
+    a = 5
+    b = 3
+
+    sum = a + b
+    diff = a - b
+    prod = a * b
+
+    sum + diff + prod
+}
+
+// Test case expression (basic pattern matching)
+test_case(value) {
+    case value {
+        0 -> "zero"
+        1 -> "one"
+        _ -> "other"
+    }
+}
+
+// Test when expression
+test_when(score) {
+    when score {
+        >= 90 -> "A"
+        >= 80 -> "B"
+        >= 70 -> "C"
+        _ -> "F"
+    }
+}
+
+// Test string interpolation
+greet(person) {
+    message = "Hello, {person}!"
+    message
+}
+
+// Test ternary operator
+check_positive(n) = n > 0 ? "positive" : "not positive"
+
+// Test basic block expression
+test_block() {
+    local_var = 42
+    another_var = local_var * 2
+    another_var + 10
+}
+
+// Main function that exercises various features
+main() {
+    // Test basic arithmetic
+    basic_sum = add(x, y)
+
+    // Test function with block
+    calc_result = calculate(5, 7)
+
+    // Test expressions
+    expr_result = test_expressions()
+
+    // Test case expression
+    case_result = test_case(1)
+
+    // Test when expression
+    grade = test_when(85)
+
+    // Test string interpolation
+    greeting = greet("World")
+
+    // Test ternary
+    pos_check = check_positive(15)
+
+    // Test block
+    block_result = test_block()
+
+    // Return final result
+    basic_sum + calc_result + expr_result
+}
+
+// Test lambda expressions (if supported)
+test_lambda() {
+    double = |x| x * 2
+    numbers = [1, 2, 3, 4, 5]
+
+    // This would test pipeline and method chaining
+    // result = numbers |> map(double) |> reduce(add, 0)
+
+    42  // Simplified for now
+}
+
+// Test simple method chaining
+test_chaining() {
+    data = [1, 2, 3]
+
+    // Simple method chain
+    // result = data.length().add(10)
+
+    15  // Simplified for now
+}

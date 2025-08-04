@@ -105,13 +105,13 @@ impl ManualParser {
         self.expect_token(&Token::Question, "Expected '?'")?;
 
         // Parse then expression
-        let then_expr = self.parse_simple_expression()?;
+        let then_expr = self.parse_binary_expression()?;
 
         // Expect ':'
         self.expect_token(&Token::Colon, "Expected ':' after ternary then expression")?;
 
         // Parse else expression
-        let else_expr = self.parse_simple_expression()?;
+        let else_expr = self.parse_binary_expression()?;
 
         Ok(Expression::Ternary {
             condition: Box::new(condition),
@@ -305,8 +305,10 @@ impl ManualParser {
     }
 
     pub fn parse_expression(&mut self) -> Result<Expression, ParseError> {
-        // Check for block expression first
-        if self.check_token(&Token::LeftBrace) {
+        // Check for case expression first
+        if self.check_token(&Token::Case) {
+            self.parse_case_expression()
+        } else if self.check_token(&Token::LeftBrace) {
             self.parse_block_expression()
         } else if self.check_token(&Token::Pipe) {
             // Check for lambda expression
@@ -395,8 +397,14 @@ impl ManualParser {
         while self.check_token(&Token::Pipeline) {
             self.advance(); // consume '|>'
 
-            // Parse the right side (should be a function)
-            let right = self.parse_binary_expression()?;
+            // Parse the right side - use parse_simple_expression to handle lambdas
+            let right = if self.check_token(&Token::Pipe) {
+                // This is a lambda expression
+                self.parse_lambda_expression()?
+            } else {
+                // This is a regular expression or function call
+                self.parse_simple_expression()?
+            };
 
             // Transform into a function call: right(left)
             result = Expression::Call {

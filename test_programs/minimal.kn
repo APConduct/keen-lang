@@ -1,0 +1,2 @@
+// Minimal test program - simplest possible Keen code
+main() = 42

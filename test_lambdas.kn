@@ -1,0 +1,112 @@
+// Test file for lambda expressions in Keen
+// This will help identify what works and what needs fixing with lambda syntax
+
+// Basic lambda expressions (these should trigger manual parser)
+add_lambda = |x, y| x + y
+double = |n| n * 2
+identity = |x| x
+
+// Lambda with single parameter (no parentheses)
+square = |x| x * x
+increment = |n| n + 1
+
+// Lambda with no parameters
+get_answer = || 42
+get_pi = || 3.14159
+
+// Lambda with block body
+complex_lambda = |x, y| {
+    sum = x + y
+    product = x * y
+    sum + product
+}
+
+// Higher-order functions using lambdas
+apply_twice = |func, value| func(func(value))
+map_numbers = |list, transform| list.map(transform)
+
+// Lambda assigned to variable then used
+multiplier = |x, factor| x * factor
+times_three = |n| multiplier(n, 3)
+
+// Lambda with function calls inside
+calculator = |a, b| {
+    sum = add_lambda(a, b)
+    doubled = double(sum)
+    doubled
+}
+
+// Pipeline with lambdas (complex case)
+process_data = |numbers| numbers
+    |> filter(|x| x > 0)
+    |> map(|x| x * 2)
+    |> reduce(|acc, x| acc + x, 0)
+
+// Lambda with conditional logic
+classify = |x| x > 0 ? "positive" : "negative"
+
+// Lambda with string interpolation
+format_number = |n| "The number is {n}"
+
+// Nested lambdas
+create_adder = |increment| |value| value + increment
+add_five = create_adder(5)
+
+// Lambda as function parameter
+process_list = |items, processor| {
+    result = []
+    items.for_each(processor)
+    result
+}
+
+// Main function to test lambda execution
+main() = {
+    // Test basic lambdas
+    result1 = add_lambda(10, 20)
+    result2 = double(15)
+    result3 = get_answer()
+
+    // Test higher-order functions
+    result4 = apply_twice(double, 5)
+
+    // Test complex lambda
+    result5 = complex_lambda(3, 7)
+
+    // Return sum of results
+    result1 + result2 + result3 + result4 + result5
+}
+
+// Test lambda with different parameter styles
+test_params = || {
+    // No parameters
+    none = || "no params"
+
+    // Single parameter
+    single = |x| x + 1
+
+    // Multiple parameters
+    multiple = |a, b, c| a + b + c
+
+    // All should work
+    42
+}
+
+// Lambda with method chaining
+chain_test = |data| data
+    .validate()
+    .transform()
+    .process()
+
+// Lambda returning lambda (currying)
+curry_add = |x| |y| x + y
+
+// Test constants and lambdas
+PI = 3.14159
+circle_area = |radius| PI * radius * radius
+
+// Lambda with pattern matching (advanced)
+match_lambda = |value| case value {
+    0 -> "zero"
+    1 -> "one"
+    _ -> "other"
+}

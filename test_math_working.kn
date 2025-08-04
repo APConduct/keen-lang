@@ -1,0 +1,18 @@
+// Very simple working math program to test basic functionality
+
+// Simple arithmetic functions with type annotations
+add(x: Int, y: Int): Int = x + y
+subtract(x: Int, y: Int): Int = x - y
+multiply(x: Int, y: Int): Int = x * y
+
+// Simple function without recursion
+square(x: Int): Int = x * x
+
+// Mathematical constants
+pi: Float = 3.14159
+
+// Simple main function
+main(): Int = {
+    result = add(5, 3)
+    result
+}

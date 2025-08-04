@@ -1,0 +1,14 @@
+// Test only variable in then clause to isolate the exact parsing issue
+
+x = 100
+
+// This should work (no variable in then/else)
+test1 = 100 > 50 ? 10 : 20
+
+// This might fail (variable in then clause)
+test2 = 100 > 50 ? x : 20
+
+main() = {
+    result = test1
+    result
+}

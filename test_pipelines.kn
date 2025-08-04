@@ -1,0 +1,210 @@
+// Test file for pipeline operators in Keen
+// This will help identify what works and what needs fixing with pipeline syntax
+
+// Helper functions for pipeline testing
+add(x, y) = x + y
+multiply(x, y) = x * y
+double(x) = x * 2
+increment(x) = x + 1
+square(x) = x * x
+subtract(x, y) = x - y
+divide(x, y) = x / y
+to_lowercase(s) = s
+replace(s, old, new) = s
+append(s, suffix) = s
+capitalize(s) = s
+trim(s) = s
+reverse(s) = s
+to_string(x) = x
+to_uppercase(s) = s
+length(s) = 10
+sum(arr) = 100
+round(x) = x
+round_to(x, digits) = x
+map(arr, func) = arr
+filter(arr, func) = arr
+reduce(arr, func, init) = init
+sort(arr) = arr
+collect(arr) = arr
+validate(x) = x
+process(x) = x
+format(x) = x
+save(x) = x
+transform(x) = x
+normalize(x) = x
+validate_input(x) = x
+transform_data(x) = x
+
+// Simple pipeline operations
+simple_pipeline = 5
+    |> double
+    |> increment
+
+// Pipeline with function calls
+function_pipeline = 10
+    |> add(5)
+    |> multiply(3)
+    |> square
+
+// Pipeline with lambda expressions
+lambda_pipeline = 7
+    |> |x| x * 2
+    |> |x| x + 10
+    |> |x| x / 2
+
+// Multi-step data processing pipeline
+process_data = |numbers| numbers
+    |> filter(|x| x > 0)
+    |> map(|x| x * 2)
+    |> reduce(|acc, x| acc + x, 0)
+
+// Pipeline with method chaining
+chain_pipeline = "hello world"
+    |> capitalize
+    |> trim
+    |> reverse
+
+// Pipeline starting with literal
+literal_pipeline = 100
+    |> subtract(25)
+    |> divide(5)
+    |> add(3)
+
+// Pipeline with function composition
+compose_test = 42
+    |> double
+    |> square
+    |> increment
+    |> double
+
+// Complex pipeline with branching logic
+complex_pipeline = |value| value
+    |> |x| x > 50 ? x * 2 : x / 2
+    |> |x| x + 10
+    |> |x| x < 100 ? x : 100
+
+// Pipeline with string operations
+string_pipeline = "Keen Language"
+    |> to_lowercase
+    |> replace(" ", "_")
+    |> append("_v1")
+
+// Pipeline with list operations
+list_pipeline = [1, 2, 3, 4, 5]
+    |> map(double)
+    |> filter(|x| x > 5)
+    |> sort
+    |> reverse
+
+// Pipeline in function definition
+process_number(n) = n
+    |> increment
+    |> double
+    |> square
+
+// Pipeline with error handling
+safe_pipeline = |value| value
+    |> validate
+    |> process
+    |> format
+    |> save
+
+// Nested pipelines
+nested_test = |data| data
+    |> map(|item| item
+        |> validate
+        |> transform
+        |> normalize)
+    |> filter(|item| item.is_valid)
+    |> collect
+
+// Pipeline with conditional execution
+conditional_pipeline = |x| x
+    |> |value| value > 0 ? value : 0
+    |> |value| value < 100 ? value : 100
+    |> double
+
+// Pipeline with side effects
+debug_pipeline = |value| value
+    |> |x| { print("Processing: {x}"); x }
+    |> double
+    |> |x| { print("Result: {x}"); x }
+
+// Pipeline operator precedence test
+precedence_test = 5 + 3
+    |> double
+    |> subtract(2)
+
+// Main function to test pipeline execution
+main() = {
+    // Test simple pipeline
+    result1 = simple_pipeline
+
+    // Test function pipeline
+    result2 = function_pipeline
+
+    // Test pipeline in expression
+    result3 = 20 |> double |> increment
+
+    // Test pipeline with variables
+    base = 15
+    result4 = base |> double |> add(10)
+
+    // Combine results
+    result1 + result2 + result3 + result4
+}
+
+// Pipeline with mathematical operations
+math_pipeline = |x| x
+    |> |n| n * 2
+    |> |n| n + 5
+    |> |n| n / 3
+    |> |n| n - 1
+
+// Pipeline with type transformations
+transform_pipeline = 42
+    |> to_string
+    |> append("!")
+    |> to_uppercase
+    |> length
+
+// Pipeline with aggregation
+aggregate_pipeline = [10, 20, 30, 40, 50]
+    |> sum
+    |> divide(5)
+    |> round
+
+// Test constants for pipeline operations
+PI = 3.14159
+E = 2.71828
+
+// Pipeline with constants
+constant_pipeline = PI
+    |> multiply(2)
+    |> add(E)
+    |> round_to(2)
+
+// Advanced pipeline patterns
+pattern_test = |data| data
+    |> validate_input
+    |> transform_data
+    |> |processed| case processed.status {
+        "success" -> processed.data |> format_output
+        "error" -> processed.error |> log_error
+        _ -> "unknown" |> handle_unknown
+    }
+
+// Pipeline with early return
+early_return_test = |value| value
+    |> validate
+    |> |x| x.is_valid ? x : return("invalid")
+    |> process
+    |> format
+
+// Test helper functions for pipeline operations
+validate(x) = x
+format_output(x) = "Output: {x}"
+log_error(x) = "Error: {x}"
+handle_unknown(x) = "Unknown: {x}"
+validate_input(x) = x
+transform_data(x) = x

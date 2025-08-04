@@ -1,0 +1,14 @@
+// Test ternary without triggering manual parser to see if the issue is in chumsky vs manual parser
+
+x = 100
+
+// Simple ternary that should use chumsky parser (no complex features)
+test1 = 100 > 50 ? 10 : 20
+
+// Variable in then clause - this should also use chumsky parser if no complex features
+test2 = 100 > 50 ? x : 20
+
+main() = {
+    result = test1
+    result
+}

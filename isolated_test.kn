@@ -1,0 +1,42 @@
+// Isolated test for the exact failing complex_pipeline pattern
+
+// Helper functions
+add(x, y) = x + y
+subtract(x, y) = x - y
+multiply(x, y) = x * y
+divide(x, y) = x / y
+double(x) = x * 2
+increment(x) = x + 1
+
+// Test 1: Just the lambda part
+test1 = |value| value
+
+// Test 2: Lambda with single pipeline
+test2 = |value| value |> |x| x + 10
+
+// Test 3: Lambda with ternary inside pipeline
+test3 = |value| value |> |x| x > 50 ? x * 2 : x / 2
+
+// Test 4: The exact failing pattern step by step
+// Step A: Start with the lambda
+stepA = |value| value
+
+// Step B: Add first pipeline with ternary
+stepB = |value| value
+    |> |x| x > 50 ? x * 2 : x / 2
+
+// Step C: Add second pipeline
+stepC = |value| value
+    |> |x| x > 50 ? x * 2 : x / 2
+    |> |x| x + 10
+
+// Step D: Add third pipeline (this is the exact failing one)
+complex_pipeline = |value| value
+    |> |x| x > 50 ? x * 2 : x / 2
+    |> |x| x + 10
+    |> |x| x < 100 ? x : 100
+
+main() = {
+    result = test1
+    result
+}

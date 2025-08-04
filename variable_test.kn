@@ -1,0 +1,13 @@
+// Test if variable name conflicts are causing the parsing issue
+
+// Test the working case for comparison
+test_working = |value| value |> |x| x > 50 ? x * 2 : x / 2 |> |y| y + 10
+
+// Simpler tests to isolate the issue
+simple_ternary_lambda = |y| y > 100 ? y : 100
+simple_pipeline_with_ternary = 150 |> |y| y > 100 ? y : 100
+
+main() = {
+    result = simple_ternary_lambda
+    result
+}

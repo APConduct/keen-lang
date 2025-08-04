@@ -1,0 +1,34 @@
+// Simple case expression test to verify case parsing works
+
+// Test basic case expression with literals
+test_case_literals(x: Int): String = case x {
+    0 -> "zero"
+    1 -> "one"
+    2 -> "two"
+    _ -> "other"
+}
+
+// Test case expression with variables
+test_case_variables(): String = {
+    value = 2
+    case value {
+        1 -> "first"
+        2 -> "second"
+        _ -> "default"
+    }
+}
+
+// Test case expression with arithmetic
+test_case_arithmetic(n: Int): Int = case n {
+    0 -> 0
+    1 -> 1
+    _ -> n * 2
+}
+
+main(): Int = {
+    result1 = test_case_literals(1)
+    result2 = test_case_variables()
+    result3 = test_case_arithmetic(5)
+
+    42
+}

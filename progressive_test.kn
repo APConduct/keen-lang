@@ -1,0 +1,36 @@
+// Progressive test to find the exact breaking point in complex pipeline parsing
+
+// Test 1: Simple lambda
+test1 = |x| x
+
+// Test 2: Lambda with simple operation
+test2 = |x| x * 2
+
+// Test 3: Lambda with ternary
+test3 = |x| x > 50 ? x * 2 : x / 2
+
+// Test 4: Simple pipeline with lambda
+test4 = 60 |> |x| x * 2
+
+// Test 5: Pipeline with lambda containing ternary
+test5 = 60 |> |x| x > 50 ? x * 2 : x / 2
+
+// Test 6: Lambda that returns a value and pipes it
+test6 = |value| value |> |x| x * 2
+
+// Test 7: Lambda with value and pipeline with ternary
+test7 = |value| value |> |x| x > 50 ? x * 2 : x / 2
+
+// Test 8: Two pipeline stages
+test8 = |value| value |> |x| x * 2 |> |y| y + 10
+
+// Test 9: Two pipeline stages with ternary in first stage
+test9 = |value| value |> |x| x > 50 ? x * 2 : x / 2 |> |y| y + 10
+
+// Test 10: Two pipeline stages with ternary in second stage
+test10 = |value| value |> |x| x * 2 |> |y| y > 100 ? y : 100
+
+main() = {
+    result = test1
+    result
+}

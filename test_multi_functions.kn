@@ -1,0 +1,10 @@
+// Test multiple functions to find parsing issues
+
+add(x: Int, y: Int): Int = x + y
+subtract(x: Int, y: Int): Int = x - y
+multiply(x: Int, y: Int): Int = x * y
+
+main(): Int = {
+    result = add(5, 3)
+    result
+}

@@ -1,0 +1,29 @@
+// Test file for type annotations to isolate parsing issues
+
+// Simple function without type annotations (should work)
+add_simple(x, y) = x + y
+
+// Function with parameter type annotations
+add_typed(x: Int, y: Int) = x + y
+
+// Function with return type annotation
+get_number(): Int = 42
+
+// Function with both parameter and return type annotations
+multiply_full(x: Int, y: Int): Int = x * y
+
+// Variable with type annotation
+number: Int = 42
+name: String = "test"
+
+// Simple types to test
+simple_function(value: Boolean): Boolean = value
+
+main() = {
+    result1 = add_simple(5, 3)
+    result2 = add_typed(10, 20)
+    result3 = get_number()
+    result4 = multiply_full(4, 5)
+
+    result1 + result2 + result3 + result4
+}

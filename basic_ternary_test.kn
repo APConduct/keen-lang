@@ -1,0 +1,17 @@
+// Basic ternary expression tests to isolate the parsing issue
+
+// Test 1: Simple ternary with literals
+test1 = 5 > 3 ? 10 : 20
+
+
+
+// Test 4: Simple lambda without ternary
+test4 = |y| y * 2
+
+// Test 5: Pipeline with simple lambda
+test5 = 150 |> |y| y * 2
+
+main() = {
+    result = test1
+    result
+}

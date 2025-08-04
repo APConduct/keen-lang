@@ -1,0 +1,8 @@
+// Simple constructor test without type annotations
+user_id = UserId(id: 12345)
+
+// Simple main function to test constructor
+main() {
+    result = user_id
+    result
+}

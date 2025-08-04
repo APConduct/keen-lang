@@ -1,0 +1,8 @@
+// Test with just one function with type annotations
+
+add(x: Int, y: Int): Int = x + y
+
+main(): Int = {
+    result = add(5, 3)
+    result
+}

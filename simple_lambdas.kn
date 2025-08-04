@@ -1,0 +1,18 @@
+// Simple lambda expressions test
+// Testing basic lambda syntax to isolate issues
+
+// Simple lambda with two parameters
+add_lambda = |x, y| x + y
+
+// Simple lambda with one parameter
+double = |n| n * 2
+
+// Lambda with no parameters
+get_answer = || 42
+
+// Main function to test lambdas
+main() = add_lambda(10, 20)
+
+// Test constants
+pi = 3.14
+name = "test"

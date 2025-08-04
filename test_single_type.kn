@@ -1,0 +1,9 @@
+// Test just one typed variable to isolate the parsing issue
+
+// Single variable with type annotation
+number: Int = 42
+
+main() = {
+    result = number
+    result
+}

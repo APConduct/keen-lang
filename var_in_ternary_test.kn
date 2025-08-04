@@ -1,0 +1,23 @@
+// Test ternary with variable in then/else clauses to isolate the parsing issue
+
+x = 100
+
+// Test 1: Variable in condition only (this should work)
+test1 = x > 50 ? 10 : 20
+
+// Test 2: Variable in then clause only
+test2 = 100 > 50 ? x : 20
+
+// Test 3: Variable in else clause only
+test3 = 100 > 50 ? 10 : x
+
+// Test 4: Variable in both then and else clauses (this might be failing)
+test4 = x > 50 ? x : 50
+
+// Test 5: Same variable in all positions
+test5 = x > 50 ? x : x
+
+main() = {
+    result = test1
+    result
+}
