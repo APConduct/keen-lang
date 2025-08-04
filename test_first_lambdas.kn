@@ -1,0 +1,21 @@
+// Test file for lambda expressions in Keen
+// This will help identify what works and what needs fixing with lambda syntax
+
+// Basic lambda expressions (these should trigger manual parser)
+add_lambda = |x, y| x + y
+double = |n| n * 2
+identity = |x| x
+
+// Lambda with single parameter (no parentheses)
+square = |x| x * x
+increment = |n| n + 1
+
+// Lambda with no parameters
+get_answer = || 42
+get_pi = || 3.14159
+
+// Lambda with block body
+complex_lambda = |x, y| {
+    sum = x + y
+    product = x * y
+}

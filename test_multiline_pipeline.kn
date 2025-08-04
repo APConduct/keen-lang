@@ -1,0 +1,10 @@
+process_number(n) = n
+    |> increment
+    |> double
+    |> square
+
+increment(x) = x + 1
+double(x) = x * 2
+square(x) = x * x
+
+main() = process_number(5)

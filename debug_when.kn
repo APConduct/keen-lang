@@ -1,0 +1,11 @@
+// Minimal when expression test to debug parsing issues
+
+test_when(score) {
+    when score {
+        >= 90 -> "A"
+        >= 80 -> "B"
+        _ -> "F"
+    }
+}
+
+main() = 42

@@ -167,10 +167,49 @@ impl ManualParser {
         self.expect_token(&Token::Arrow, "Expected '->' after when condition")?;
         eprintln!("DEBUG: Found arrow in when arm");
 
-        let body = self.parse_expression()?;
+        let body = self.parse_when_arm_body()?;
         eprintln!("DEBUG: Parsed when arm body");
 
         Ok(WhenArm { condition, body })
+    }
+
+    fn parse_when_arm_body(&mut self) -> Result<Expression, ParseError> {
+        // Parse a simple expression that stops at when arm boundaries
+        // When arm boundaries are: comparison operators, underscore, or closing brace
+        match self.current_token() {
+            Some(Token::String(s)) => {
+                let s = s.clone();
+                self.advance();
+                Ok(Expression::Literal(Literal::String(s)))
+            }
+            Some(Token::Integer(n)) => {
+                let n = *n;
+                self.advance();
+                Ok(Expression::Literal(Literal::Integer(n)))
+            }
+            Some(Token::Float(f)) => {
+                let f = *f;
+                self.advance();
+                Ok(Expression::Literal(Literal::Float(f)))
+            }
+            Some(Token::True) => {
+                self.advance();
+                Ok(Expression::Literal(Literal::Boolean(true)))
+            }
+            Some(Token::False) => {
+                self.advance();
+                Ok(Expression::Literal(Literal::Boolean(false)))
+            }
+            Some(Token::Identifier(name)) => {
+                let name = name.clone();
+                self.advance();
+                Ok(Expression::Identifier(name))
+            }
+            _ => {
+                // For more complex expressions, parse until we hit a when arm boundary
+                self.parse_simple_expression()
+            }
+        }
     }
 
     fn parse_pattern(&mut self) -> Result<Pattern, ParseError> {
@@ -360,6 +399,38 @@ impl ManualParser {
                 // For wildcard patterns, create a literal true expression to match anything
                 Ok(Expression::Literal(Literal::Boolean(true)))
             }
+            // Handle shorthand comparison operators: >= 90, < 100, == "test", etc.
+            Some(Token::Equal)
+            | Some(Token::NotEqual)
+            | Some(Token::Less)
+            | Some(Token::Greater)
+            | Some(Token::LessEqual)
+            | Some(Token::GreaterEqual) => {
+                eprintln!("DEBUG: Found shorthand comparison operator in when condition");
+                let op = match self.current_token().unwrap() {
+                    Token::Equal => BinaryOp::Equal,
+                    Token::NotEqual => BinaryOp::NotEqual,
+                    Token::Less => BinaryOp::Less,
+                    Token::Greater => BinaryOp::Greater,
+                    Token::LessEqual => BinaryOp::LessEqual,
+                    Token::GreaterEqual => BinaryOp::GreaterEqual,
+                    _ => unreachable!(),
+                };
+                self.advance(); // consume the operator
+
+                // Parse the right-hand side expression
+                let right = self.parse_simple_expression()?;
+
+                // Create a placeholder left expression - this will be filled in by the when expression logic
+                // For now, we'll use a special identifier to represent the when expression value
+                let left = Expression::Identifier("__when_expr__".to_string());
+
+                Ok(Expression::Binary {
+                    left: Box::new(left),
+                    op,
+                    right: Box::new(right),
+                })
+            }
             Some(Token::Integer(n)) => {
                 let n = *n;
                 self.advance();
@@ -405,8 +476,6 @@ impl ManualParser {
             self.parse_case_expression()
         } else if self.check_token(&Token::When) {
             self.parse_when_expression()
-        } else if self.check_token(&Token::LeftBrace) {
-            self.parse_block_expression()
         } else if self.check_token(&Token::Pipe) {
             // Check for lambda expression
             self.parse_lambda_expression()
@@ -443,7 +512,6 @@ impl ManualParser {
         }
 
         self.expect_token(&Token::RightBrace, "Expected '}' after block")?;
-
         Ok(Expression::Block {
             statements,
             expression: final_expression,
@@ -596,7 +664,15 @@ impl ManualParser {
                     // Could be type annotation
                     true
                 } else {
-                    false
+                    // Check if this is a method call or function call (these are statements in blocks)
+                    // Look ahead for patterns like: identifier.method() or identifier()
+                    if let Some(Token::Dot) = self.peek_token() {
+                        true // Method calls are statements
+                    } else if let Some(Token::LeftParen) = self.peek_token() {
+                        true // Function calls are statements
+                    } else {
+                        false
+                    }
                 }
             }
             _ => false,
@@ -618,111 +694,78 @@ impl ManualParser {
     }
 
     fn parse_binary_expression(&mut self) -> Result<Expression, ParseError> {
-        let left = self.parse_simple_expression()?;
+        self.parse_comparison()
+    }
 
-        // Check for binary operators
-        match self.current_token() {
-            Some(Token::Equal) => {
-                self.advance();
-                let right = self.parse_simple_expression()?;
-                Ok(Expression::Binary {
-                    left: Box::new(left),
-                    op: BinaryOp::Equal,
-                    right: Box::new(right),
-                })
-            }
-            Some(Token::NotEqual) => {
-                self.advance();
-                let right = self.parse_simple_expression()?;
-                Ok(Expression::Binary {
-                    left: Box::new(left),
-                    op: BinaryOp::NotEqual,
-                    right: Box::new(right),
-                })
-            }
-            Some(Token::Less) => {
-                self.advance();
-                let right = self.parse_simple_expression()?;
-                Ok(Expression::Binary {
-                    left: Box::new(left),
-                    op: BinaryOp::Less,
-                    right: Box::new(right),
-                })
-            }
-            Some(Token::Greater) => {
-                self.advance();
-                let right = self.parse_simple_expression()?;
-                Ok(Expression::Binary {
-                    left: Box::new(left),
-                    op: BinaryOp::Greater,
-                    right: Box::new(right),
-                })
-            }
-            Some(Token::LessEqual) => {
-                self.advance();
-                let right = self.parse_simple_expression()?;
-                Ok(Expression::Binary {
-                    left: Box::new(left),
-                    op: BinaryOp::LessEqual,
-                    right: Box::new(right),
-                })
-            }
-            Some(Token::GreaterEqual) => {
-                self.advance();
-                let right = self.parse_simple_expression()?;
-                Ok(Expression::Binary {
-                    left: Box::new(left),
-                    op: BinaryOp::GreaterEqual,
-                    right: Box::new(right),
-                })
-            }
-            Some(Token::Plus) => {
-                self.advance();
-                let right = self.parse_simple_expression()?;
-                Ok(Expression::Binary {
-                    left: Box::new(left),
-                    op: BinaryOp::Add,
-                    right: Box::new(right),
-                })
-            }
-            Some(Token::Minus) => {
-                self.advance();
-                let right = self.parse_simple_expression()?;
-                Ok(Expression::Binary {
-                    left: Box::new(left),
-                    op: BinaryOp::Sub,
-                    right: Box::new(right),
-                })
-            }
-            Some(Token::Multiply) => {
-                self.advance();
-                let right = self.parse_simple_expression()?;
-                Ok(Expression::Binary {
-                    left: Box::new(left),
-                    op: BinaryOp::Mul,
-                    right: Box::new(right),
-                })
-            }
-            Some(Token::Divide) => {
-                self.advance();
-                let right = self.parse_simple_expression()?;
-                Ok(Expression::Binary {
-                    left: Box::new(left),
-                    op: BinaryOp::Div,
-                    right: Box::new(right),
-                })
-            }
-            Some(Token::Modulo) => {
-                self.advance();
-                let right = self.parse_simple_expression()?;
-                Ok(Expression::Binary {
-                    left: Box::new(left),
-                    op: BinaryOp::Mod,
-                    right: Box::new(right),
-                })
-            }
-            _ => Ok(left), // No binary operator, return as-is
+    fn parse_comparison(&mut self) -> Result<Expression, ParseError> {
+        let mut expr = self.parse_term()?;
+
+        while let Some(op) = self.current_token() {
+            let bin_op = match op {
+                Token::Equal => BinaryOp::Equal,
+                Token::NotEqual => BinaryOp::NotEqual,
+                Token::Less => BinaryOp::Less,
+                Token::Greater => BinaryOp::Greater,
+                Token::LessEqual => BinaryOp::LessEqual,
+                Token::GreaterEqual => BinaryOp::GreaterEqual,
+                _ => break,
+            };
+
+            self.advance();
+            let right = self.parse_term()?;
+            expr = Expression::Binary {
+                left: Box::new(expr),
+                op: bin_op,
+                right: Box::new(right),
+            };
         }
+
+        Ok(expr)
+    }
+
+    fn parse_term(&mut self) -> Result<Expression, ParseError> {
+        let mut expr = self.parse_factor()?;
+
+        while let Some(op) = self.current_token() {
+            let bin_op = match op {
+                Token::Plus => BinaryOp::Add,
+                Token::Minus => BinaryOp::Sub,
+                _ => break,
+            };
+
+            self.advance();
+            let right = self.parse_factor()?;
+            expr = Expression::Binary {
+                left: Box::new(expr),
+                op: bin_op,
+                right: Box::new(right),
+            };
+        }
+
+        Ok(expr)
+    }
+
+    fn parse_factor(&mut self) -> Result<Expression, ParseError> {
+        let mut expr = self.parse_simple_expression()?;
+
+        while let Some(op) = self.current_token() {
+            let bin_op = match op {
+                Token::Multiply => BinaryOp::Mul,
+                Token::Divide => BinaryOp::Div,
+                Token::Modulo => BinaryOp::Mod,
+                _ => break,
+            };
+
+            self.advance();
+            let right = self.parse_simple_expression()?;
+            expr = Expression::Binary {
+                left: Box::new(expr),
+                op: bin_op,
+                right: Box::new(right),
+            };
+        }
+
+        Ok(expr)
     }
 
     fn parse_simple_expression(&mut self) -> Result<Expression, ParseError> {
@@ -912,13 +955,32 @@ impl ManualParser {
                                 is_block = true;
                             }
                         }
+                        Token::String(_) => {
+                            // String literal - check if next token is : (map key)
+                            if lookahead_pos + 1 < self.tokens.len() {
+                                match &self.tokens[lookahead_pos + 1] {
+                                    Token::Colon => is_block = false, // This is a map
+                                    _ => is_block = true, // Default to block for ambiguous cases
+                                }
+                            } else {
+                                is_block = true;
+                            }
+                        }
                         Token::RightBrace => {
-                            // Empty braces - treat as empty block
-                            is_block = true;
+                            // Empty braces - treat as empty map
+                            is_block = false;
                         }
                         _ => {
-                            // If it doesn't start with identifier, it's likely a map or expression
-                            is_block = false;
+                            // If it doesn't start with identifier or string, it's likely an expression
+                            // Look ahead one more token to see if there's a colon
+                            if lookahead_pos + 1 < self.tokens.len() {
+                                match &self.tokens[lookahead_pos + 1] {
+                                    Token::Colon => is_block = false, // This is a map
+                                    _ => is_block = true,             // Default to block
+                                }
+                            } else {
+                                is_block = true;
+                            }
                         }
                     }
                 }
@@ -1077,19 +1139,33 @@ impl ManualParser {
                     if brace_count == 0 {
                         // End of interpolation
                         if !interpolation_content.is_empty() {
+                            eprintln!(
+                                "DEBUG: Parsing interpolation content: '{}'",
+                                interpolation_content
+                            );
+
                             // Parse the interpolation content as an expression
                             let expr_tokens: Vec<Token> = Token::lexer(&interpolation_content)
                                 .filter_map(|result| result.ok())
                                 .collect();
+
+                            eprintln!("DEBUG: Interpolation tokens: {:?}", expr_tokens);
 
                             if !expr_tokens.is_empty() {
                                 // Parse the tokens into an expression
                                 let mut expr_parser = ManualParser::new(expr_tokens);
                                 match expr_parser.parse_expression() {
                                     Ok(expr) => {
+                                        eprintln!(
+                                            "DEBUG: Interpolation expression parsed successfully"
+                                        );
                                         parts.push(StringPart::Expression(Box::new(expr)));
                                     }
-                                    Err(_) => {
+                                    Err(e) => {
+                                        eprintln!(
+                                            "DEBUG: Interpolation parsing failed: {}",
+                                            e.message
+                                        );
                                         // If parsing fails, treat as literal
                                         parts.push(StringPart::Literal(format!(
                                             "{{{}}}",

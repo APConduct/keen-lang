@@ -1,0 +1,17 @@
+// Minimal lambda test to isolate parsing issues
+// This file contains the simplest possible lambda expressions to debug the parser
+
+// Simple variable assignment with lambda
+increment = |x| x + 1
+
+// Simple function that should work
+add(a, b) = a + b
+
+// Another simple lambda
+double = |n| n * 2
+
+// Main function to test execution
+main() = {
+    result = add(5, 3)
+    result
+}

@@ -1,0 +1,120 @@
+// Test file for pipeline operators in Keen
+// This will help identify what works and what needs fixing with pipeline syntax
+
+// Helper functions for pipeline testing
+add(x, y) = x + y
+multiply(x, y) = x * y
+double(x) = x * 2
+increment(x) = x + 1
+square(x) = x * x
+subtract(x, y) = x - y
+divide(x, y) = x / y
+to_lowercase(s) = s
+replace(s, old, new) = s
+append(s, suffix) = s
+capitalize(s) = s
+trim(s) = s
+reverse(s) = s
+to_string(x) = x
+to_uppercase(s) = s
+length(s) = 10
+sum(arr) = 100
+round(x) = x
+round_to(x, digits) = x
+map(arr, func) = arr
+filter(arr, func) = arr
+reduce(arr, func, init) = init
+sort(arr) = arr
+collect(arr) = arr
+validate(x) = x
+process(x) = x
+format(x) = x
+save(x) = x
+transform(x) = x
+normalize(x) = x
+validate_input(x) = x
+transform_data(x) = x
+
+// Simple pipeline operations
+simple_pipeline = 5
+    |> double
+    |> increment
+
+// Pipeline with function calls
+function_pipeline = 10
+    |> add(5)
+    |> multiply(3)
+    |> square
+
+// Pipeline with lambda expressions
+lambda_pipeline = 7
+    |> |x| x * 2
+    |> |x| x + 10
+    |> |x| x / 2
+
+// Multi-step data processing pipeline
+process_data = |numbers| numbers
+    |> filter(|x| x > 0)
+    |> map(|x| x * 2)
+    |> reduce(|acc, x| acc + x, 0)
+
+// Pipeline with method chaining
+chain_pipeline = "hello world"
+    |> capitalize
+    |> trim
+    |> reverse
+
+// Pipeline starting with literal
+literal_pipeline = 100
+    |> subtract(25)
+    |> divide(5)
+    |> add(3)
+
+// Pipeline with function composition
+compose_test = 42
+    |> double
+    |> square
+    |> increment
+    |> double
+
+// Complex pipeline with branching logic
+complex_pipeline = |value| value
+    |> |x| x > 50 ? x * 2 : x / 2
+    |> |x| x + 10
+    |> |x| x < 100 ? x : 100
+
+// Pipeline with string operations
+string_pipeline = "Keen Language"
+    |> to_lowercase
+    |> replace(" ", "_")
+    |> append("_v1")
+
+// Pipeline with list operations
+list_pipeline = [1, 2, 3, 4, 5]
+    |> map(double)
+    |> filter(|x| x > 5)
+    |> sort
+    |> reverse
+
+// Pipeline in function definition
+process_number(n) = n
+    |> increment
+    |> double
+    |> square
+
+// Pipeline with error handling
+safe_pipeline = |value| value
+    |> validate
+    |> process
+    |> format
+    |> save
+
+// Nested pipelines
+nested_test = |data| data
+    |> map(|item| item
+        |> validate
+        |> transform
+        |> normalize)
+    |> filter(|item| item.is_valid)
+    |> collect
+

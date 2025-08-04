@@ -168,8 +168,8 @@ comprehensive_test(input) {
         |> |x| x * 2
         |> |x| x + 10
 
-    // Case expression
-    category = case processed {
+    // When expression
+    category = when processed {
         < 20 -> "small"
         < 50 -> "medium"
         _ -> "large"

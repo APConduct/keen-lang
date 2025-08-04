@@ -1,0 +1,7 @@
+test_block = {
+    sum = 1 + 2
+    result = sum * 3
+    result
+}
+
+main() = test_block

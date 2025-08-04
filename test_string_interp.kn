@@ -1,0 +1,3 @@
+name = "World"
+message = "Hello, {name}!"
+main() = 42

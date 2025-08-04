@@ -142,5 +142,30 @@ impl Eq for Token {}
 
 /// Check if a string contains interpolation syntax
 pub fn has_interpolation(s: &str) -> bool {
-    s.contains('{') && s.contains('}')
+    // More precise check for interpolation: look for {identifier} or {expression} patterns
+    let mut chars = s.chars().peekable();
+    let mut brace_count = 0;
+    let mut found_interpolation = false;
+
+    while let Some(ch) = chars.next() {
+        match ch {
+            '{' => {
+                brace_count += 1;
+                // Check if there's content after the opening brace
+                if let Some(&next_ch) = chars.peek() {
+                    if next_ch.is_alphabetic() || next_ch == '_' {
+                        found_interpolation = true;
+                    }
+                }
+            }
+            '}' => {
+                if brace_count > 0 {
+                    brace_count -= 1;
+                }
+            }
+            _ => {}
+        }
+    }
+
+    found_interpolation && brace_count == 0
 }

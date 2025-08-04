@@ -1,0 +1,8 @@
+test_params = || {
+    none = || "no params"
+    single = |x| x + 1
+    multiple = |a, b, c| a + b + c
+    42
+}
+
+main() = test_params()

@@ -1,0 +1,5 @@
+test = |x| { print("hello {x}"); x }
+
+print(s) = s
+
+main() = test(5)

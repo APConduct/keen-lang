@@ -1,0 +1,7 @@
+test_lambda = |x, y| {
+    sum = x + y
+    product = x * y
+    sum + product
+}
+
+main() = test_lambda(3, 4)

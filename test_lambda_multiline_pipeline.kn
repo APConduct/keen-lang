@@ -1,0 +1,12 @@
+safe_pipeline = |value| value
+    |> validate
+    |> process
+    |> format
+    |> save
+
+validate(x) = x
+process(x) = x
+format(x) = x
+save(x) = x
+
+main() = safe_pipeline(42)

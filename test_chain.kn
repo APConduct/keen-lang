@@ -1,0 +1,6 @@
+chain_test = |data| data
+    .validate()
+    .transform()
+    .process()
+
+main() = 42
