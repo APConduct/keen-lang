@@ -406,10 +406,22 @@ impl ManualParser {
                 self.parse_simple_expression()?
             };
 
-            // Transform into a function call: right(left)
-            result = Expression::Call {
-                function: Box::new(right),
-                args: vec![result],
+            // Transform into a function call
+            result = match right {
+                // If right side is already a function call: add(5) -> add(left, 5)
+                Expression::Call { function, args } => {
+                    let mut new_args = vec![result];
+                    new_args.extend(args);
+                    Expression::Call {
+                        function,
+                        args: new_args,
+                    }
+                }
+                // If right side is a simple expression: func -> func(left)
+                _ => Expression::Call {
+                    function: Box::new(right),
+                    args: vec![result],
+                },
             };
         }
 

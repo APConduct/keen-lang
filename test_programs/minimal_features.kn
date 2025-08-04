@@ -1,0 +1,52 @@
+// Minimal test for each new pipeline feature
+// Tests one feature at a time to isolate issues
+
+// Helper functions
+add(x, y) = x + y
+double(x) = x * 2
+
+// Test 1: Simple pipeline (already working)
+test1() = {
+    result = 5 |> double
+    result
+}
+
+// Test 2: Pipeline with function arguments
+test2() = {
+    result = 10 |> add(5)
+    result
+}
+
+// Test 3: Basic list literal (commented out for now)
+// test3() = {
+//     numbers = [1, 2, 3]
+//     numbers
+// }
+
+// Test 4: Simple lambda expression (commented out for now)
+// test4() = {
+//     result = 7 |> |x| x * 2
+//     result
+// }
+
+// Test 5: Lambda with addition (commented out for now)
+// test5() = {
+//     result = 10 |> |x| x + 3
+//     result
+// }
+
+// Main function - test one at a time
+main() = {
+    // Test only the simple pipeline first
+    result1 = test1()
+
+    // Test pipeline with function arguments
+    result2 = test2()
+
+    // Uncomment one at a time to test each feature:
+    // result3 = test3()
+    // result4 = test4()
+    // result5 = test5()
+
+    result1 + result2
+}

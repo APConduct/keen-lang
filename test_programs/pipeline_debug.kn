@@ -1,0 +1,12 @@
+// Very simple pipeline debug test
+// Just test if pipeline with function arguments works at all
+
+// Simple helper function
+add(x, y) = x + y
+
+// Test pipeline with function arguments
+main() = {
+    // This should be: 10 |> add(5) = add(10, 5) = 15
+    result = 10 |> add(5)
+    result
+}
