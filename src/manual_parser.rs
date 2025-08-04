@@ -66,22 +66,43 @@ impl ManualParser {
     }
 
     pub fn parse_when_expression(&mut self) -> Result<Expression, ParseError> {
+        eprintln!(
+            "DEBUG: Starting when expression parsing at position {}",
+            self.position
+        );
+
         // Expect 'when'
         self.expect_token(&Token::When, "Expected 'when'")?;
+        eprintln!("DEBUG: Found 'when' keyword");
 
         // Parse the expression to evaluate
-        let expr = self.parse_expression()?;
+        eprintln!(
+            "DEBUG: Parsing when condition expression, current token: {:?}",
+            self.current_token()
+        );
+        let expr = self.parse_simple_expression()?;
+        eprintln!("DEBUG: Parsed when condition successfully");
 
         // Expect '{'
         self.expect_token(&Token::LeftBrace, "Expected '{' after when expression")?;
+        eprintln!("DEBUG: Found opening brace for when arms");
 
         // Parse when arms
         let mut arms = Vec::new();
         while !self.check_token(&Token::RightBrace) && !self.is_at_end() {
+            eprintln!(
+                "DEBUG: Parsing when arm, current token: {:?}",
+                self.current_token()
+            );
             arms.push(self.parse_when_arm()?);
+            eprintln!(
+                "DEBUG: Parsed when arm successfully, total arms: {}",
+                arms.len()
+            );
         }
 
         if arms.is_empty() {
+            eprintln!("DEBUG: No when arms found");
             return Err(ParseError {
                 message: "When expression must have at least one arm".to_string(),
                 position: self.position,
@@ -90,6 +111,10 @@ impl ManualParser {
 
         // Expect '}'
         self.expect_token(&Token::RightBrace, "Expected '}' after when arms")?;
+        eprintln!(
+            "DEBUG: Successfully parsed when expression with {} arms",
+            arms.len()
+        );
 
         Ok(Expression::When {
             expr: Box::new(expr),
@@ -131,11 +156,19 @@ impl ManualParser {
     }
 
     fn parse_when_arm(&mut self) -> Result<WhenArm, ParseError> {
-        let condition = self.parse_condition_expression()?;
+        eprintln!(
+            "DEBUG: Starting when arm parsing, current token: {:?}",
+            self.current_token()
+        );
+
+        let condition = self.parse_when_condition()?;
+        eprintln!("DEBUG: Parsed when arm condition");
 
         self.expect_token(&Token::Arrow, "Expected '->' after when condition")?;
+        eprintln!("DEBUG: Found arrow in when arm");
 
         let body = self.parse_expression()?;
+        eprintln!("DEBUG: Parsed when arm body");
 
         Ok(WhenArm { condition, body })
     }
@@ -241,14 +274,20 @@ impl ManualParser {
     }
 
     fn parse_condition_expression(&mut self) -> Result<Expression, ParseError> {
+        eprintln!(
+            "DEBUG: Starting condition expression parsing, current token: {:?}",
+            self.current_token()
+        );
+
         // Parse a simple comparison expression for when conditions
-        let left = self.parse_expression()?;
+        let left = self.parse_simple_expression()?;
+        eprintln!("DEBUG: Parsed left side of condition");
 
         // Check for comparison operators
         match self.current_token() {
             Some(Token::Equal) => {
                 self.advance();
-                let right = self.parse_expression()?;
+                let right = self.parse_simple_expression()?;
                 Ok(Expression::Binary {
                     left: Box::new(left),
                     op: BinaryOp::Equal,
@@ -257,7 +296,7 @@ impl ManualParser {
             }
             Some(Token::NotEqual) => {
                 self.advance();
-                let right = self.parse_expression()?;
+                let right = self.parse_simple_expression()?;
                 Ok(Expression::Binary {
                     left: Box::new(left),
                     op: BinaryOp::NotEqual,
@@ -266,7 +305,7 @@ impl ManualParser {
             }
             Some(Token::Less) => {
                 self.advance();
-                let right = self.parse_expression()?;
+                let right = self.parse_simple_expression()?;
                 Ok(Expression::Binary {
                     left: Box::new(left),
                     op: BinaryOp::Less,
@@ -275,7 +314,7 @@ impl ManualParser {
             }
             Some(Token::Greater) => {
                 self.advance();
-                let right = self.parse_expression()?;
+                let right = self.parse_simple_expression()?;
                 Ok(Expression::Binary {
                     left: Box::new(left),
                     op: BinaryOp::Greater,
@@ -284,7 +323,7 @@ impl ManualParser {
             }
             Some(Token::LessEqual) => {
                 self.advance();
-                let right = self.parse_expression()?;
+                let right = self.parse_simple_expression()?;
                 Ok(Expression::Binary {
                     left: Box::new(left),
                     op: BinaryOp::LessEqual,
@@ -293,14 +332,70 @@ impl ManualParser {
             }
             Some(Token::GreaterEqual) => {
                 self.advance();
-                let right = self.parse_expression()?;
+                let right = self.parse_simple_expression()?;
                 Ok(Expression::Binary {
                     left: Box::new(left),
                     op: BinaryOp::GreaterEqual,
                     right: Box::new(right),
                 })
             }
-            _ => Ok(left), // No comparison operator, return as-is
+            _ => {
+                eprintln!("DEBUG: No comparison operator, returning left expression");
+                Ok(left) // No comparison operator, return as-is
+            }
+        }
+    }
+
+    fn parse_when_condition(&mut self) -> Result<Expression, ParseError> {
+        eprintln!(
+            "DEBUG: Starting when condition parsing, current token: {:?}",
+            self.current_token()
+        );
+
+        // Handle special when arm patterns
+        match self.current_token() {
+            Some(Token::Underscore) => {
+                eprintln!("DEBUG: Found wildcard pattern in when condition");
+                self.advance();
+                // For wildcard patterns, create a literal true expression to match anything
+                Ok(Expression::Literal(Literal::Boolean(true)))
+            }
+            Some(Token::Integer(n)) => {
+                let n = *n;
+                self.advance();
+                eprintln!("DEBUG: Found integer literal in when condition: {}", n);
+                Ok(Expression::Literal(Literal::Integer(n)))
+            }
+            Some(Token::Float(f)) => {
+                let f = *f;
+                self.advance();
+                eprintln!("DEBUG: Found float literal in when condition: {}", f);
+                Ok(Expression::Literal(Literal::Float(f)))
+            }
+            Some(Token::String(s)) => {
+                let s = s.clone();
+                self.advance();
+                eprintln!("DEBUG: Found string literal in when condition: {}", s);
+                Ok(Expression::Literal(Literal::String(s)))
+            }
+            Some(Token::True) => {
+                self.advance();
+                eprintln!("DEBUG: Found boolean true in when condition");
+                Ok(Expression::Literal(Literal::Boolean(true)))
+            }
+            Some(Token::False) => {
+                self.advance();
+                eprintln!("DEBUG: Found boolean false in when condition");
+                Ok(Expression::Literal(Literal::Boolean(false)))
+            }
+            Some(Token::Identifier(_)) => {
+                eprintln!("DEBUG: Found identifier, parsing as condition expression");
+                self.parse_condition_expression()
+            }
+            _ => {
+                eprintln!("DEBUG: Parsing complex when condition expression");
+                self.parse_condition_expression()
+            }
         }
     }
 
@@ -308,6 +403,8 @@ impl ManualParser {
         // Check for case expression first
         if self.check_token(&Token::Case) {
             self.parse_case_expression()
+        } else if self.check_token(&Token::When) {
+            self.parse_when_expression()
         } else if self.check_token(&Token::LeftBrace) {
             self.parse_block_expression()
         } else if self.check_token(&Token::Pipe) {
@@ -1063,24 +1160,38 @@ impl ManualParser {
     }
 
     pub fn parse_function(&mut self) -> Result<Item, ParseError> {
+        eprintln!(
+            "DEBUG: Starting function parsing at position {}",
+            self.position
+        );
+
         // Function name
         let name = match self.current_token() {
-            Some(Token::Identifier(n)) => n.clone(),
+            Some(Token::Identifier(n)) => {
+                eprintln!("DEBUG: Found function name: {}", n);
+                n.clone()
+            }
             _ => {
+                eprintln!(
+                    "DEBUG: Expected function name, found: {:?}",
+                    self.current_token()
+                );
                 return Err(ParseError {
                     message: "Expected function name".to_string(),
                     position: self.position,
-                })
+                });
             }
         };
         self.advance();
 
         // Parameters
+        eprintln!("DEBUG: Parsing parameters");
         self.expect_token(&Token::LeftParen, "Expected '(' after function name")?;
         let mut params = Vec::new();
 
         while !self.check_token(&Token::RightParen) && !self.is_at_end() {
             if let Some(Token::Identifier(param_name)) = self.current_token() {
+                eprintln!("DEBUG: Found parameter: {}", param_name);
                 params.push(Parameter {
                     name: param_name.clone(),
                     type_annotation: None,
@@ -1092,6 +1203,10 @@ impl ManualParser {
                     self.advance();
                 }
             } else {
+                eprintln!(
+                    "DEBUG: Expected parameter name, found: {:?}",
+                    self.current_token()
+                );
                 return Err(ParseError {
                     message: "Expected parameter name".to_string(),
                     position: self.position,
@@ -1100,9 +1215,11 @@ impl ManualParser {
         }
 
         self.expect_token(&Token::RightParen, "Expected ')' after parameters")?;
+        eprintln!("DEBUG: Finished parsing {} parameters", params.len());
 
         // Optional return type
         let return_type = if self.check_token(&Token::Colon) {
+            eprintln!("DEBUG: Parsing return type");
             self.advance();
             Some(self.parse_type()?)
         } else {
@@ -1110,37 +1227,54 @@ impl ManualParser {
         };
 
         // Function body
+        eprintln!(
+            "DEBUG: Parsing function body, current token: {:?}",
+            self.current_token()
+        );
         let body = if self.check_token(&Token::Assign) {
+            eprintln!("DEBUG: Found = syntax");
             self.advance();
 
             // Check if this is = { ... } (block expression) or = expr
             if self.check_token(&Token::LeftBrace) {
                 // This is foo() = { ... } syntax
+                eprintln!("DEBUG: Parsing = {{ block expression");
                 let block_expr = self.parse_block_expression()?;
                 FunctionBody::Expression(block_expr)
             } else {
                 // This is foo() = expr syntax
+                eprintln!("DEBUG: Parsing = expr");
                 let expr = self.parse_expression()?;
                 FunctionBody::Expression(expr)
             }
         } else if self.check_token(&Token::LeftBrace) {
             // This is foo() { ... } syntax
+            eprintln!("DEBUG: Parsing {{ block statements");
             self.advance();
             let mut statements = Vec::new();
 
             while !self.check_token(&Token::RightBrace) && !self.is_at_end() {
+                eprintln!(
+                    "DEBUG: Parsing statement, current token: {:?}",
+                    self.current_token()
+                );
                 statements.push(self.parse_statement()?);
             }
 
             self.expect_token(&Token::RightBrace, "Expected '}' after function body")?;
             FunctionBody::Block(statements)
         } else {
+            eprintln!(
+                "DEBUG: No valid function body found, current token: {:?}",
+                self.current_token()
+            );
             return Err(ParseError {
                 message: "Expected function body (= expr, = { ... }, or { ... })".to_string(),
                 position: self.position,
             });
         };
 
+        eprintln!("DEBUG: Successfully parsed function: {}", name);
         Ok(Item::Function(Function {
             name,
             params,
