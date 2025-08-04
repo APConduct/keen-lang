@@ -1,0 +1,15 @@
+// Test file that should definitely trigger manual parser
+// This uses string interpolation which always triggers manual parser
+
+// Helper function
+add(x, y) = x + y
+
+// Variable with string interpolation (should trigger manual parser)
+name = "World"
+greeting = "Hello, {name}!"
+
+// Function with string interpolation (should trigger manual parser)
+test_interpolation() = "The result is {add(10, 5)}"
+
+// Main function
+main() = add(10, 20)

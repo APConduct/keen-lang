@@ -479,6 +479,27 @@ fn has_complex_expressions(tokens: &[Token]) -> bool {
                 }
             }
 
+            // Check for = { pattern which should always use manual parser
+            Token::Assign => {
+                if i + 1 < tokens.len() {
+                    if let Some(Token::LeftBrace) = tokens.get(i + 1) {
+                        return true; // Force manual parser for = { patterns
+                    }
+                }
+            }
+
+            // Check for function patterns that use blocks
+            Token::RightParen => {
+                if i + 1 < tokens.len() && i + 2 < tokens.len() {
+                    // Pattern: ) = {
+                    if matches!(tokens.get(i + 1), Some(Token::Assign))
+                        && matches!(tokens.get(i + 2), Some(Token::LeftBrace))
+                    {
+                        return true; // Force manual parser for function block syntax
+                    }
+                }
+            }
+
             _ => {}
         }
         i += 1;
@@ -535,10 +556,10 @@ fn is_function_block_body(tokens: &[Token], brace_pos: usize) -> bool {
         }
     }
 
-    // Pattern 3: = { ... } (expression body with block)
+    // Pattern 3: = { ... } (expression body with block) - ALWAYS triggers manual parser
     if brace_pos > 0 {
         if let Some(Token::Assign) = tokens.get(brace_pos - 1) {
-            return true;
+            return false; // Force manual parser for block expressions
         }
     }
 
@@ -593,8 +614,14 @@ fn parse_item_hybrid(tokens: &[Token], position: &mut usize) -> Result<Item, Str
 
     match item_type {
         ItemType::Function => {
-            // Functions go to manual parser if they have complex expressions
-            if has_string_interpolation(&item_tokens) || has_block_or_lambda(&item_tokens) {
+            // Check if ANY function in the entire file has complex expressions
+            // If so, use manual parser for ALL functions to avoid conflicts
+            let file_has_complex = has_complex_expressions(tokens);
+
+            if file_has_complex
+                || has_string_interpolation(&item_tokens)
+                || has_block_or_lambda(&item_tokens)
+            {
                 parse_item_with_manual_parser(item_tokens)
             } else {
                 // Simple functions use chumsky parser

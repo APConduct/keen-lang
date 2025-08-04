@@ -409,8 +409,26 @@ impl ManualParser {
     }
 
     fn parse_statement(&mut self) -> Result<Statement, ParseError> {
-        // For now, only support expression statements
-        // We can expand this later for variable declarations, etc.
+        // Check if this is an assignment statement
+        if let Some(Token::Identifier(var_name)) = self.current_token() {
+            if let Some(Token::Assign) = self.peek_token() {
+                // Parse assignment statement: identifier = expression
+                let name = var_name.clone();
+                self.advance(); // consume identifier
+                self.advance(); // consume '='
+
+                let value = self.parse_expression()?;
+
+                return Ok(Statement::VariableDecl(VariableDecl {
+                    name,
+                    mutability: Mutability::Immutable,
+                    type_annotation: None,
+                    value,
+                }));
+            }
+        }
+
+        // Otherwise, parse as expression statement
         let expr = self.parse_expression()?;
         Ok(Statement::Expression(expr))
     }
@@ -709,27 +727,65 @@ impl ManualParser {
                 Ok(Expression::List { elements })
             }
             Some(Token::LeftBrace) => {
-                self.advance(); // consume '{'
-                let mut pairs = Vec::new();
+                // Check if this is a block expression or a map literal
+                // Look ahead to see if the first thing is an identifier followed by = (statement)
+                // or an expression followed by : (map entry)
+                let mut lookahead_pos = self.position + 1;
+                let mut is_block = false;
 
-                while !self.check_token(&Token::RightBrace) && !self.is_at_end() {
-                    let key = self.parse_expression()?;
-                    self.expect_token(&Token::Colon, "Expected ':' after map key")?;
-                    let value = self.parse_expression()?;
-                    pairs.push((key, value));
-
-                    if self.check_token(&Token::Comma) {
-                        self.advance();
-                    } else if !self.check_token(&Token::RightBrace) {
-                        return Err(ParseError {
-                            message: "Expected ',' or '}' in map literal".to_string(),
-                            position: self.position,
-                        });
+                // Look at the first non-empty content after {
+                if lookahead_pos < self.tokens.len() {
+                    match &self.tokens[lookahead_pos] {
+                        Token::Identifier(_) => {
+                            // Check if next token is = (block) or : (map)
+                            if lookahead_pos + 1 < self.tokens.len() {
+                                match &self.tokens[lookahead_pos + 1] {
+                                    Token::Assign => is_block = true,
+                                    Token::Colon => is_block = false,
+                                    _ => is_block = true, // Default to block for ambiguous cases
+                                }
+                            } else {
+                                is_block = true;
+                            }
+                        }
+                        Token::RightBrace => {
+                            // Empty braces - treat as empty block
+                            is_block = true;
+                        }
+                        _ => {
+                            // If it doesn't start with identifier, it's likely a map or expression
+                            is_block = false;
+                        }
                     }
                 }
 
-                self.expect_token(&Token::RightBrace, "Expected '}' after map elements")?;
-                Ok(Expression::Map { pairs })
+                if is_block {
+                    // Parse as block expression
+                    self.parse_block_expression()
+                } else {
+                    // Parse as map literal
+                    self.advance(); // consume '{'
+                    let mut pairs = Vec::new();
+
+                    while !self.check_token(&Token::RightBrace) && !self.is_at_end() {
+                        let key = self.parse_expression()?;
+                        self.expect_token(&Token::Colon, "Expected ':' after map key")?;
+                        let value = self.parse_expression()?;
+                        pairs.push((key, value));
+
+                        if self.check_token(&Token::Comma) {
+                            self.advance();
+                        } else if !self.check_token(&Token::RightBrace) {
+                            return Err(ParseError {
+                                message: "Expected ',' or '}' in map literal".to_string(),
+                                position: self.position,
+                            });
+                        }
+                    }
+
+                    self.expect_token(&Token::RightBrace, "Expected '}' after map elements")?;
+                    Ok(Expression::Map { pairs })
+                }
             }
             _ => Err(ParseError {
                 message: "Expected expression".to_string(),

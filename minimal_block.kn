@@ -1,0 +1,6 @@
+// Minimal block test
+test() = {
+    5
+}
+
+main() = test()

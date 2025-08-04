@@ -1,0 +1,11 @@
+// Test single block function with string interpolation to force manual parser
+// This should work since we know single block functions work
+
+// Variable with string interpolation forces manual parser
+name = "test"
+greeting = "Hello, {name}!"
+
+// Single block function - should work with manual parser
+test() = {
+    42
+}

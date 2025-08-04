@@ -1,0 +1,13 @@
+// Minimal test case to debug block expression parsing
+
+// Helper function
+add(x, y) = x + y
+
+// Simple block - this should work
+simple() = {
+    x = 5
+    x
+}
+
+// Main function
+main() = simple()

@@ -1,0 +1,15 @@
+// Test simple block function with no parameters
+
+// Helper functions
+add(x, y) = x + y
+multiply(x, y) = x * y
+
+// Simple block function
+test_block() = {
+    x = 10
+    y = 20
+    add(x, y)
+}
+
+// Main function
+main() = test_block()

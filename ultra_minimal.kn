@@ -1,0 +1,9 @@
+// Ultra minimal test to isolate block function issue
+
+// Single simple block function
+test() = {
+    42
+}
+
+// Main function to call the test
+main() = test()

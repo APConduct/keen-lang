@@ -1,0 +1,8 @@
+// Test simple function call parsing
+// This will help isolate the function call issue in the manual parser
+
+// Helper function
+add(x, y) = x + y
+
+// Simple function that calls another function
+main() = add(10, 20)
