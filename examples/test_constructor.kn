@@ -1,2 +1,0 @@
-// Test constructor expression only
-user_id: UserId = UserId(id: 12345)
