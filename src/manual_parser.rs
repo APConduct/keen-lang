@@ -1062,7 +1062,7 @@ impl ManualParser {
         }
     }
 
-    fn parse_function(&mut self) -> Result<Item, ParseError> {
+    pub fn parse_function(&mut self) -> Result<Item, ParseError> {
         // Function name
         let name = match self.current_token() {
             Some(Token::Identifier(n)) => n.clone(),
@@ -1112,9 +1112,19 @@ impl ManualParser {
         // Function body
         let body = if self.check_token(&Token::Assign) {
             self.advance();
-            let expr = self.parse_expression()?;
-            FunctionBody::Expression(expr)
+
+            // Check if this is = { ... } (block expression) or = expr
+            if self.check_token(&Token::LeftBrace) {
+                // This is foo() = { ... } syntax
+                let block_expr = self.parse_block_expression()?;
+                FunctionBody::Expression(block_expr)
+            } else {
+                // This is foo() = expr syntax
+                let expr = self.parse_expression()?;
+                FunctionBody::Expression(expr)
+            }
         } else if self.check_token(&Token::LeftBrace) {
+            // This is foo() { ... } syntax
             self.advance();
             let mut statements = Vec::new();
 
@@ -1126,7 +1136,7 @@ impl ManualParser {
             FunctionBody::Block(statements)
         } else {
             return Err(ParseError {
-                message: "Expected function body (= expr or { ... })".to_string(),
+                message: "Expected function body (= expr, = { ... }, or { ... })".to_string(),
                 position: self.position,
             });
         };

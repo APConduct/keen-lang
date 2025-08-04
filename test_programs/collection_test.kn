@@ -1,0 +1,91 @@
+// Collection Literals Test for Keen Language
+// Tests basic list and map literal functionality
+
+// Simple arithmetic functions for testing
+add(a, b) = a + b
+multiply(a, b) = a * b
+double(x) = x * 2
+
+// Global variables
+x = 10
+y = 20
+z = 30
+
+// Test basic list literals
+empty_list = []
+numbers = [1, 2, 3, 4, 5]
+mixed_numbers = [x, y, z]
+computed_list = [add(x, y), multiply(x, y), double(z)]
+
+// Test basic map literals
+empty_map = {}
+simple_map = {"name": "Alice", "age": 30}
+number_map = {"x": x, "y": y, "sum": add(x, y)}
+computed_map = {
+    "doubled_x": double(x),
+    "product": multiply(x, y),
+    "total": add(x, add(y, z))
+}
+
+// Function that works with collections
+process_list(items) {
+    // For now, just return a fixed value
+    // In full implementation, would process the list
+    42
+}
+
+process_map(data) {
+    // For now, just return a fixed value
+    // In full implementation, would process the map
+    100
+}
+
+// Test collections in function calls
+test_list_processing() {
+    test_numbers = [1, 2, 3]
+    result = process_list(test_numbers)
+    result
+}
+
+test_map_processing() {
+    test_data = {"key": "value", "number": 42}
+    result = process_map(test_data)
+    result
+}
+
+// Main function to test collections
+main() {
+    // Test list processing
+    list_result = test_list_processing()
+
+    // Test map processing
+    map_result = test_map_processing()
+
+    // Combine results
+    add(list_result, map_result)
+}
+
+// Test nested collections
+test_nested_collections() {
+    nested_list = [[1, 2], [3, 4], [5, 6]]
+    nested_map = {
+        "numbers": [1, 2, 3],
+        "data": {"x": 10, "y": 20}
+    }
+
+    // Return a test value
+    142
+}
+
+// Test collections with function calls
+test_collections_with_functions() {
+    function_results = [add(1, 2), multiply(3, 4), double(5)]
+    function_map = {
+        "sum": add(10, 20),
+        "product": multiply(5, 6),
+        "doubled": double(15)
+    }
+
+    // Return test value
+    200
+}

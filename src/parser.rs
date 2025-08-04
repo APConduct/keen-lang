@@ -433,13 +433,16 @@ fn expression_parser() -> impl Parser<Token, Expression, Error = Simple<Token>> 
 pub fn parse_with_manual_fallback(tokens: Vec<Token>) -> Result<Program, Vec<String>> {
     // First, detect if we have case or when expressions
     if has_complex_expressions(&tokens) {
+        eprintln!("DEBUG: Using hybrid parser due to complex expressions");
         parse_hybrid(tokens)
     } else {
+        eprintln!("DEBUG: Using chumsky parser for simple expressions");
         // Use regular chumsky parser
         let chumsky_parser = parser();
-        chumsky_parser
-            .parse(tokens)
-            .map_err(|errors| errors.into_iter().map(|e| format!("{:?}", e)).collect())
+        chumsky_parser.parse(tokens).map_err(|errors| {
+            eprintln!("DEBUG: Chumsky parser failed with errors: {:?}", errors);
+            errors.into_iter().map(|e| format!("{:?}", e)).collect()
+        })
     }
 }
 
@@ -449,32 +452,43 @@ fn has_complex_expressions(tokens: &[Token]) -> bool {
     while i < tokens.len() {
         match &tokens[i] {
             // These always need manual parser
-            Token::Case | Token::When => return true,
+            Token::Case | Token::When => {
+                eprintln!("DEBUG: Found case/when, using manual parser");
+                return true;
+            }
 
             // String interpolation needs manual parser
-            Token::String(s) if crate::lexer::has_interpolation(s) => return true,
+            Token::String(s) if crate::lexer::has_interpolation(s) => {
+                eprintln!("DEBUG: Found string interpolation, using manual parser");
+                return true;
+            }
 
             // Ternary operator needs manual parser
-            Token::Question => return true,
+            Token::Question => {
+                eprintln!("DEBUG: Found ternary operator, using manual parser");
+                return true;
+            }
 
             // Lambda expressions need manual parser (|param| expr)
             Token::Pipe => {
                 // Check if this looks like a lambda: |...|
                 if let Some(_pipe_end) = find_matching_pipe(&tokens, i) {
+                    eprintln!("DEBUG: Found lambda expression, using manual parser");
                     return true;
                 }
             }
 
             // Pipeline operator needs manual parser
-            Token::Pipeline => return true,
+            Token::Pipeline => {
+                eprintln!("DEBUG: Found pipeline operator, using manual parser");
+                return true;
+            }
 
-            // Only consider LeftBrace complex if it's NOT part of a function body
+            // Only use manual parser for standalone block expressions, not function bodies
             Token::LeftBrace => {
-                // Check if this is a function definition pattern
-                if is_function_block_body(&tokens, i) {
-                    // This is a function body, let the regular parser handle it
-                } else {
-                    // This is a standalone block expression, needs manual parser
+                // Check if this is part of a function definition
+                if !is_function_body_brace(&tokens, i) {
+                    eprintln!("DEBUG: Found standalone block expression, using manual parser");
                     return true;
                 }
             }
@@ -483,6 +497,7 @@ fn has_complex_expressions(tokens: &[Token]) -> bool {
             Token::Assign => {
                 if i + 1 < tokens.len() {
                     if let Some(Token::LeftBrace) = tokens.get(i + 1) {
+                        eprintln!("DEBUG: Found = {{ pattern, using manual parser");
                         return true; // Force manual parser for = { patterns
                     }
                 }
@@ -491,20 +506,21 @@ fn has_complex_expressions(tokens: &[Token]) -> bool {
             // Check for ) { pattern (function with block body)
             Token::RightParen => {
                 if i + 1 < tokens.len() {
-                    if let Some(Token::LeftBrace) = tokens.get(i + 1) {
-                        return true; // Force manual parser for function blocks
-                    }
-                }
-            }
-
-            // Check for function patterns that use blocks
-            Token::RightParen => {
-                if i + 1 < tokens.len() && i + 2 < tokens.len() {
-                    // Pattern: ) = {
-                    if matches!(tokens.get(i + 1), Some(Token::Assign))
-                        && matches!(tokens.get(i + 2), Some(Token::LeftBrace))
-                    {
-                        return true; // Force manual parser for function block syntax
+                    match tokens.get(i + 1) {
+                        Some(Token::LeftBrace) => {
+                            eprintln!("DEBUG: Found ) {{ pattern, using manual parser");
+                            return true; // Force manual parser for ) { patterns
+                        }
+                        Some(Token::Assign) => {
+                            // Check for ) = { pattern
+                            if i + 2 < tokens.len()
+                                && matches!(tokens.get(i + 2), Some(Token::LeftBrace))
+                            {
+                                eprintln!("DEBUG: Found ) = {{ pattern, using manual parser");
+                                return true; // Force manual parser for ) = { patterns
+                            }
+                        }
+                        _ => {}
                     }
                 }
             }
@@ -516,15 +532,42 @@ fn has_complex_expressions(tokens: &[Token]) -> bool {
 
     // Check for constructor expressions
     if tokens.iter().any(|_| has_constructor_expression(tokens)) {
+        eprintln!("DEBUG: Found constructor expression, using manual parser");
         return true;
     }
+
+    eprintln!("DEBUG: No complex expressions found, using chumsky parser");
     false
 }
 
 // Helper function to detect if a LeftBrace is part of a function definition
-fn is_function_block_body(tokens: &[Token], brace_pos: usize) -> bool {
-    // Always return false to force manual parser for ALL block expressions
-    // This ensures consistent handling of function blocks and expression blocks
+fn is_function_body_brace(tokens: &[Token], brace_pos: usize) -> bool {
+    eprintln!(
+        "DEBUG: Checking brace at position {} with tokens before: {:?}",
+        brace_pos,
+        tokens
+            .get(brace_pos.saturating_sub(3)..brace_pos)
+            .unwrap_or(&[])
+    );
+
+    // Check if this brace is part of a function definition
+    // Look backwards for ) before this brace
+    if brace_pos > 0 {
+        if let Some(Token::RightParen) = tokens.get(brace_pos - 1) {
+            eprintln!("DEBUG: Found ) {{ pattern - this is a function body");
+            return true;
+        }
+        // Also check for ) = { pattern
+        if brace_pos > 1 {
+            if let (Some(Token::Assign), Some(Token::RightParen)) =
+                (tokens.get(brace_pos - 1), tokens.get(brace_pos - 2))
+            {
+                eprintln!("DEBUG: Found ) = {{ pattern - this is a function body");
+                return true;
+            }
+        }
+    }
+    eprintln!("DEBUG: Not a function body brace - using manual parser");
     false
 }
 
@@ -576,41 +619,20 @@ fn parse_item_hybrid(tokens: &[Token], position: &mut usize) -> Result<Item, Str
 
     match item_type {
         ItemType::Function => {
+            eprintln!("DEBUG: Parsing function with manual parser");
             // Always use manual parser for functions to ensure block support
             parse_item_with_manual_parser(item_tokens)
         }
         ItemType::Variable => {
-            // Variables with complex expressions use manual parser
-            if is_variable_decl_with_complex_expr(&item_tokens) {
-                parse_variable_with_complex_expr(item_tokens)
-            } else {
-                // Simple variables use chumsky parser
-                let chumsky_parser = parser();
-                match chumsky_parser.parse(item_tokens) {
-                    Ok(mut program) => {
-                        if let Some(item) = program.items.pop() {
-                            Ok(item)
-                        } else {
-                            Err("Failed to parse item".to_string())
-                        }
-                    }
-                    Err(_) => Err("Failed to parse item with chumsky".to_string()),
-                }
-            }
+            eprintln!("DEBUG: Parsing variable with manual parser (hybrid mode)");
+            // In hybrid mode, use manual parser for all variables
+            parse_variable_with_complex_expr(item_tokens)
         }
         _ => {
-            // Type definitions and unknown items use chumsky parser
-            let chumsky_parser = parser();
-            match chumsky_parser.parse(item_tokens) {
-                Ok(mut program) => {
-                    if let Some(item) = program.items.pop() {
-                        Ok(item)
-                    } else {
-                        Err("Failed to parse item".to_string())
-                    }
-                }
-                Err(_) => Err("Failed to parse item with chumsky".to_string()),
-            }
+            eprintln!("DEBUG: Parsing unknown item type with manual parser (hybrid mode)");
+            // In hybrid mode, try manual parser for unknown items too
+            // For now, return an error for unsupported item types
+            Err("Unknown item type in hybrid parser".to_string())
         }
     }
 }
@@ -658,23 +680,26 @@ enum ItemType {
 
 fn detect_item_type(tokens: &[Token], start: usize) -> ItemType {
     if start >= tokens.len() {
+        eprintln!("DEBUG: Empty tokens, unknown item type");
         return ItemType::Unknown;
     }
 
     // Type definition: "type Name = ..."
     if matches!(tokens.get(start), Some(Token::Type)) {
+        eprintln!("DEBUG: Detected TypeDef");
         return ItemType::TypeDef;
     }
 
     // Function definition: "name(...) ..." or "name(...): Type ..."
-    if let Some(Token::Identifier(_)) = tokens.get(start) {
+    if let Some(Token::Identifier(name)) = tokens.get(start) {
         if let Some(Token::LeftParen) = tokens.get(start + 1) {
+            eprintln!("DEBUG: Detected Function: {}", name);
             return ItemType::Function;
         }
     }
 
     // Variable declaration with type: "name: Type = ..."
-    if let Some(Token::Identifier(_)) = tokens.get(start) {
+    if let Some(Token::Identifier(name)) = tokens.get(start) {
         if let Some(Token::Colon) = tokens.get(start + 1) {
             // Look for assignment after type annotation
             let mut i = start + 2;
@@ -682,18 +707,24 @@ fn detect_item_type(tokens: &[Token], start: usize) -> ItemType {
                 i += 1;
             }
             if i < tokens.len() && matches!(tokens[i], Token::Assign) {
+                eprintln!("DEBUG: Detected Variable with type: {}", name);
                 return ItemType::Variable;
             }
         }
     }
 
     // Simple variable declaration: "name = ..."
-    if let Some(Token::Identifier(_)) = tokens.get(start) {
+    if let Some(Token::Identifier(name)) = tokens.get(start) {
         if let Some(Token::Assign) = tokens.get(start + 1) {
+            eprintln!("DEBUG: Detected simple Variable: {}", name);
             return ItemType::Variable;
         }
     }
 
+    eprintln!(
+        "DEBUG: Unknown item type for token: {:?}",
+        tokens.get(start)
+    );
     ItemType::Unknown
 }
 
@@ -963,13 +994,7 @@ fn is_variable_decl_with_complex_expr(tokens: &[Token]) -> bool {
                 let has_basic_complex = expr_tokens.iter().any(|t| {
                     matches!(
                         t,
-                        Token::Case
-                            | Token::When
-                            | Token::Question
-                            | Token::Pipeline
-                            | Token::Pipe
-                            | Token::LeftBrace
-                            | Token::LeftBracket
+                        Token::Case | Token::When | Token::Question | Token::Pipeline | Token::Pipe
                     ) || match t {
                         Token::String(s) => crate::lexer::has_interpolation(s),
                         _ => false,
@@ -1079,130 +1104,12 @@ fn is_function_definition(tokens: &[Token]) -> bool {
 }
 
 fn parse_function_with_manual_parser(tokens: Vec<Token>) -> Result<Item, String> {
-    // Extract function name
-    let name = if let Some(Token::Identifier(n)) = tokens.get(0) {
-        n.clone()
-    } else {
-        return Err("Expected function name".to_string());
-    };
-
-    // Find parameters (simplified - just extract parameter names)
-    let mut params = Vec::new();
-    let mut i = 2; // Skip name and LeftParen
-    while i < tokens.len() {
-        if let Some(Token::RightParen) = tokens.get(i) {
-            i += 1;
-            break;
-        }
-        if let Some(Token::Identifier(param_name)) = tokens.get(i) {
-            params.push(Parameter {
-                name: param_name.clone(),
-                type_annotation: None,
-                mutability: None,
-            });
-        }
-        i += 1;
+    // Use the manual parser directly for better handling
+    let mut manual_parser = ManualParser::new(tokens);
+    match manual_parser.parse_function() {
+        Ok(item) => Ok(item),
+        Err(e) => Err(format!("Manual parser function error: {}", e.message)),
     }
-
-    // Skip optional return type annotation
-    if i < tokens.len() && matches!(tokens.get(i), Some(Token::Colon)) {
-        while i < tokens.len() && !matches!(tokens.get(i), Some(Token::Assign | Token::LeftBrace)) {
-            i += 1;
-        }
-    }
-
-    // Parse function body
-    let body = if i < tokens.len() {
-        match tokens.get(i) {
-            Some(Token::Assign) => {
-                // Expression body: parse the expression after =
-                let expr_tokens = tokens[(i + 1)..].to_vec();
-                let mut manual_parser = ManualParser::new(expr_tokens);
-                match manual_parser.parse_expression() {
-                    Ok(expr) => FunctionBody::Expression(expr),
-                    Err(e) => {
-                        return Err(format!(
-                            "Failed to parse function expression: {}",
-                            e.message
-                        ))
-                    }
-                }
-            }
-            Some(Token::LeftBrace) => {
-                // Block body: parse statements inside {}
-                let block_tokens = tokens[(i + 1)..(tokens.len() - 1)].to_vec(); // Remove { and }
-                let mut statements = Vec::new();
-
-                // Simple statement parsing - just treat each assignment as a statement
-                let mut j = 0;
-                while j < block_tokens.len() {
-                    if let Some(Token::Identifier(var_name)) = block_tokens.get(j) {
-                        if let Some(Token::Assign) = block_tokens.get(j + 1) {
-                            // Find end of this statement
-                            let mut stmt_end = j + 2;
-                            let mut depth = 0;
-                            while stmt_end < block_tokens.len() {
-                                match block_tokens.get(stmt_end) {
-                                    Some(
-                                        Token::LeftParen | Token::LeftBrace | Token::LeftBracket,
-                                    ) => depth += 1,
-                                    Some(
-                                        Token::RightParen | Token::RightBrace | Token::RightBracket,
-                                    ) => depth -= 1,
-                                    Some(Token::Identifier(_))
-                                        if depth == 0 && stmt_end + 1 < block_tokens.len() =>
-                                    {
-                                        if matches!(
-                                            block_tokens.get(stmt_end + 1),
-                                            Some(Token::Assign)
-                                        ) {
-                                            break; // Next statement
-                                        }
-                                    }
-                                    _ => {}
-                                }
-                                stmt_end += 1;
-                            }
-
-                            // Parse this statement's expression
-                            let stmt_expr_tokens = block_tokens[(j + 2)..stmt_end].to_vec();
-                            let mut manual_parser = ManualParser::new(stmt_expr_tokens);
-                            match manual_parser.parse_expression() {
-                                Ok(expr) => {
-                                    statements.push(Statement::VariableDecl(VariableDecl {
-                                        name: var_name.clone(),
-                                        mutability: Mutability::Immutable,
-                                        type_annotation: None,
-                                        value: expr,
-                                    }));
-                                }
-                                Err(_) => {
-                                    // Skip this statement
-                                }
-                            }
-                            j = stmt_end;
-                        } else {
-                            j += 1;
-                        }
-                    } else {
-                        j += 1;
-                    }
-                }
-
-                FunctionBody::Block(statements)
-            }
-            _ => return Err("Expected function body".to_string()),
-        }
-    } else {
-        return Err("Missing function body".to_string());
-    };
-
-    Ok(Item::Function(Function {
-        name,
-        params,
-        return_type: None,
-        body,
-    }))
 }
 
 fn parse_variable_with_complex_expr(tokens: Vec<Token>) -> Result<Item, String> {
@@ -1226,43 +1133,11 @@ fn parse_variable_with_complex_expr(tokens: Vec<Token>) -> Result<Item, String> 
     // Parse the expression part with manual parser
     let expr_tokens = tokens[(assign_idx + 1)..].to_vec();
 
-    let value = if matches!(expr_tokens.first(), Some(Token::Case)) {
-        let mut manual_parser = ManualParser::new(expr_tokens);
-        manual_parser.parse_case_expression()
-    } else if matches!(expr_tokens.first(), Some(Token::When)) {
-        let mut manual_parser = ManualParser::new(expr_tokens);
-        manual_parser.parse_when_expression()
-    } else if matches!(expr_tokens.first(), Some(Token::LeftBrace)) {
-        let mut manual_parser = ManualParser::new(expr_tokens);
-        manual_parser.parse_block_expression()
-    } else if matches!(expr_tokens.first(), Some(Token::Pipe)) {
-        let mut manual_parser = ManualParser::new(expr_tokens);
-        manual_parser.parse_lambda_expression()
-    } else if expr_tokens.iter().any(|t| matches!(t, Token::Question)) {
-        let mut manual_parser = ManualParser::new(expr_tokens);
-        manual_parser.parse_expression()
-    } else if expr_tokens.iter().any(|t| match t {
-        Token::String(s) => crate::lexer::has_interpolation(s),
-        _ => false,
-    }) {
-        let mut manual_parser = ManualParser::new(expr_tokens);
-        manual_parser.parse_expression()
-    } else if expr_tokens
-        .iter()
-        .any(|t| matches!(t, Token::Pipeline))
-    {
-        let mut manual_parser = ManualParser::new(expr_tokens);
-        manual_parser.parse_expression()
-    } else if has_constructor_expression(&expr_tokens) {
-        let mut manual_parser = ManualParser::new(expr_tokens);
-        manual_parser.parse_expression()
-    } else {
-        return Err(
-            "Expected case, when, ternary, block, lambda, pipeline, string interpolation, or constructor expression"
-                .to_string(),
-        );
-    }
-    .map_err(|e| format!("Parse error in '{}': {}", name, e.message))?;
+    // Use manual parser for ALL expressions in hybrid mode
+    let mut manual_parser = ManualParser::new(expr_tokens);
+    let value = manual_parser
+        .parse_expression()
+        .map_err(|e| format!("Parse error in '{}': {}", name, e.message))?;
 
     Ok(Item::VariableDecl(VariableDecl {
         name,

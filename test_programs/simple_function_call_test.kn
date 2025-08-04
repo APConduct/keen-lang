@@ -1,0 +1,44 @@
+// Simple Function Call Test for Keen Language
+// Tests the basic features that should now be working
+
+// Simple helper functions
+add(a, b) = a + b
+double(x) = x * 2
+square(x) = x * x
+
+// Global variables
+x = 10
+y = 20
+
+// Test variable assignments with function calls
+sum = add(x, y)
+doubled_x = double(x)
+squared_y = square(y)
+
+// Test function with block body
+calculate_result() {
+    temp = add(x, y)
+    final = double(temp)
+    final
+}
+
+// Test simple string interpolation
+greeting = "Hello, {x}!"
+
+// Test simple list literal
+numbers = [1, 2, 3]
+
+// Test simple lambda
+increment = |n| n + 1
+
+// Main function
+main() {
+    // Test all the fixed features
+    result1 = sum          // Should be 30 (10 + 20)
+    result2 = doubled_x    // Should be 20 (10 * 2)
+    result3 = squared_y    // Should be 400 (20 * 20)
+    result4 = calculate_result()  // Should be 60 ((10 + 20) * 2)
+
+    // Simple addition to combine results
+    result1 + result2 + result3
+}

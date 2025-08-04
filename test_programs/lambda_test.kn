@@ -1,0 +1,103 @@
+// Lambda Expression Test for Keen Language
+// Tests basic lambda expression functionality
+
+// Simple arithmetic functions
+add(a, b) = a + b
+multiply(a, b) = a * b
+double(x) = x * 2
+
+// Global variables
+x = 10
+y = 20
+
+// Test basic lambda expressions
+add_one = |n| n + 1
+multiply_by_two = |n| n * 2
+square = |x| x * x
+
+// Test lambda with multiple parameters
+add_lambda = |a, b| a + b
+multiply_lambda = |a, b| a * b
+
+// Test lambda with no parameters
+get_constant = || 42
+get_pi = || 3.14159
+
+// Test lambda with complex body
+complex_lambda = |x, y| {
+    sum = add(x, y)
+    product = multiply(x, y)
+    sum + product
+}
+
+// Higher-order function that takes a lambda
+apply_operation(value, operation) = operation(value)
+
+// Function that returns a lambda
+create_adder(increment) = |x| x + increment
+
+// Test lambda in pipeline operations
+test_pipeline_lambda() {
+    result = 5
+        |> |x| x * 2
+        |> |x| x + 3
+    result
+}
+
+// Test lambda with function calls
+test_lambda_with_calls() {
+    transform = |x| add(multiply(x, 2), 5)
+    result = transform(10)
+    result
+}
+
+// Main function to test lambdas
+main() {
+    // Test simple lambdas
+    result1 = add_one(5)           // Should be 6
+    result2 = multiply_by_two(7)   // Should be 14
+    result3 = square(4)            // Should be 16
+
+    // Test multi-parameter lambda
+    result4 = add_lambda(3, 7)     // Should be 10
+
+    // Test no-parameter lambda
+    result5 = get_constant()       // Should be 42
+
+    // Test higher-order function
+    result6 = apply_operation(8, double)  // Should be 16
+
+    // Combine results for testing
+    add(result1, add(result2, add(result3, add(result4, add(result5, result6)))))
+}
+
+// Test lambda assignment and usage
+test_lambda_assignment() {
+    // Assign lambdas to variables
+    increment = |x| x + 1
+    decrement = |x| x - 1
+
+    // Use them
+    val = 10
+    incremented = increment(val)
+    decremented = decrement(val)
+
+    add(incremented, decremented)
+}
+
+// Test lambda with local variables
+test_lambda_with_locals() {
+    local_value = 100
+    lambda_with_local = |x| add(x, local_value)
+
+    result = lambda_with_local(50)
+    result
+}
+
+// Test nested lambdas
+test_nested_lambdas() {
+    outer = |x| |y| add(x, y)
+    inner = outer(10)
+    result = inner(20)
+    result
+}

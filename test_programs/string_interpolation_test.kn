@@ -1,0 +1,61 @@
+// String Interpolation Test for Keen Language
+// Tests basic string interpolation functionality
+
+// Global variables for interpolation
+name = "Keen"
+version = 1
+pi = 3.14159
+is_active = true
+
+// Simple arithmetic functions
+add(a, b) = a + b
+multiply(a, b) = a * b
+
+// Test basic string interpolation
+greeting = "Hello, {name}!"
+version_info = "Language version: {version}"
+math_info = "Pi is approximately {pi}"
+status_info = "System is {is_active ? "active" : "inactive"}"
+
+// String interpolation with function calls
+x = 10
+y = 20
+sum_message = "Sum of {x} and {y} is {add(x, y)}"
+product_message = "Product is {multiply(x, y)}"
+
+// String interpolation with expressions
+doubled_x = multiply(x, 2)
+complex_message = "Double of {x} is {doubled_x}"
+
+// Function that returns string interpolation
+create_message(value) = "The value is: {value}"
+
+// Main function to test string interpolation
+main() {
+    // Test different interpolation scenarios
+    result1 = greeting      // "Hello, Keen!"
+    result2 = version_info  // "Language version: 1"
+    result3 = sum_message   // "Sum of 10 and 20 is 30"
+
+    // For now, return length of first string as test result
+    // In a full implementation, this would return the actual strings
+    42  // Placeholder return value
+}
+
+// Test string interpolation in function bodies
+test_interpolation_in_function() {
+    local_var = 100
+    local_message = "Local variable value: {local_var}"
+
+    // Return something testable
+    local_var
+}
+
+// Test nested interpolation expressions
+test_complex_interpolation() {
+    base = 5
+    complex = "Base {base}, doubled is {multiply(base, 2)}, sum with 10 is {add(base, 10)}"
+
+    // Return base value for testing
+    base
+}
