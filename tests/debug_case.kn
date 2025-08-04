@@ -1,0 +1,16 @@
+// Minimal test case for debugging case expressions
+
+// Simple case expression
+test_simple_case(x) = {
+    case x {
+        1 -> "one"
+        2 -> "two"
+        _ -> "other"
+    }
+}
+
+// Main function
+main() = {
+    result = test_simple_case(1)
+    42
+}

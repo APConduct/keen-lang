@@ -174,8 +174,8 @@ impl ManualParser {
     }
 
     fn parse_when_arm_body(&mut self) -> Result<Expression, ParseError> {
-        // Parse a simple expression that stops at when arm boundaries
-        // When arm boundaries are: comparison operators, underscore, or closing brace
+        // Parse expressions that are valid in when arm bodies, but stop at when arm boundaries
+        // When arm boundaries are: comparison operators that start new arms, underscore, or closing brace
         match self.current_token() {
             Some(Token::String(s)) => {
                 let s = s.clone();
@@ -203,10 +203,36 @@ impl ManualParser {
             Some(Token::Identifier(name)) => {
                 let name = name.clone();
                 self.advance();
-                Ok(Expression::Identifier(name))
+
+                // Handle function calls and method chains but stop at when boundaries
+                if self.check_token(&Token::LeftParen) {
+                    // This is a function call
+                    self.advance(); // consume '('
+                    let mut args = Vec::new();
+
+                    while !self.check_token(&Token::RightParen) && !self.is_at_end() {
+                        args.push(self.parse_simple_expression()?);
+                        if self.check_token(&Token::Comma) {
+                            self.advance();
+                        } else if !self.check_token(&Token::RightParen) {
+                            return Err(ParseError {
+                                message: "Expected ',' or ')' in function call".to_string(),
+                                position: self.position,
+                            });
+                        }
+                    }
+
+                    self.expect_token(&Token::RightParen, "Expected ')' after function arguments")?;
+                    Ok(Expression::Call {
+                        function: Box::new(Expression::Identifier(name)),
+                        args,
+                    })
+                } else {
+                    Ok(Expression::Identifier(name))
+                }
             }
             _ => {
-                // For more complex expressions, parse until we hit a when arm boundary
+                // For other cases, parse a simple expression but avoid consuming when arm boundaries
                 self.parse_simple_expression()
             }
         }
@@ -1254,12 +1280,22 @@ impl ManualParser {
         while !self.check_token(&Token::RightParen) && !self.is_at_end() {
             if let Some(Token::Identifier(param_name)) = self.current_token() {
                 eprintln!("DEBUG: Found parameter: {}", param_name);
+                let param_name = param_name.clone();
+                self.advance();
+
+                // Check for optional type annotation
+                let type_annotation = if self.check_token(&Token::Colon) {
+                    self.advance(); // consume ':'
+                    Some(self.parse_type()?)
+                } else {
+                    None
+                };
+
                 params.push(Parameter {
-                    name: param_name.clone(),
-                    type_annotation: None,
+                    name: param_name,
+                    type_annotation,
                     mutability: None,
                 });
-                self.advance();
 
                 if self.check_token(&Token::Comma) {
                     self.advance();
