@@ -1,8 +1,0 @@
-// Test two functions with type annotations
-// This will help identify if the issue is with multiple typed functions
-
-// First function with type annotations
-add_typed(x: Int, y: Int): Int = x + y
-
-// Second function with type annotations
-multiply_typed(a: Int, b: Int): Int = a * b

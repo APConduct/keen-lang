@@ -1,5 +1,0 @@
-// Single function with type annotations to isolate parsing issue
-// This will help determine if the problem is with the chumsky parser's type handling
-
-// Simple function with type annotations
-add_typed(x: Int, y: Int): Int = x + y

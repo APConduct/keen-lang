@@ -1,0 +1,79 @@
+// Case expression (exhaustive pattern matching) with string interpolation
+process_result(result: Result): Int {
+    case result {
+        Ok(value) -> {
+            print("Processing successful value: {value}")
+            value * 2
+        }
+        Error(msg) -> {
+            print("Error occurred: {msg}")
+            log_error(msg)
+            0
+        }
+    }
+}
+
+// Pattern matching with destructuring and chaining
+handle_request(request: HttpRequest): HttpResponse {
+    case request {
+        Get(path) -> path
+            |> validate_path
+            |> serve_file
+            |> add_cache_headers
+        Post(path, data) -> data
+            .validate()
+            .transform()
+            |> process_post(path, _)
+            |> format_response("Successfully processed POST to {path}")
+        Delete(path) -> path
+            |> validate_path
+            |> remove_file
+            |> log_deletion("Deleted file at {path}")
+        _ -> error_response("Unknown method: {request.method}")
+    }
+}
+
+// When expression (non-exhaustive conditional matching) with interpolation
+calculate_grade(score: Int): String {
+    grade = when score {
+        >= 90 -> "A"
+        >= 80 -> "B"
+        >= 70 -> "C"
+        >= 60 -> "D"
+        _ -> "F"
+    }
+
+    print("Score {score} receives grade: {grade}")
+    grade
+}
+
+// Nested patterns with enhanced evaluation
+evaluate_expr(expr: Expression): Int {
+    result = case expr {
+        Literal(n) -> {
+            print("Evaluating literal: {n}")
+            n
+        }
+        Add(Literal(a), Literal(b)) -> {
+            sum = a + b
+            print("Direct addition: {a} + {b} = {sum}")
+            sum
+        }
+        Add(left, right) -> {
+            left_val = evaluate_expr(left)
+            right_val = evaluate_expr(right)
+            result = left_val + right_val
+            print("Complex addition result: {result}")
+            result
+        }
+        Multiply(left, right) -> {
+            left_val = evaluate_expr(left)
+            right_val = evaluate_expr(right)
+            result = left_val * right_val
+            print("Multiplication result: {result}")
+            result
+        }
+    }
+
+    result
+}
