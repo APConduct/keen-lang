@@ -1,0 +1,62 @@
+// Working Features Test - Only tests features that are confirmed working
+// This is a minimal test to verify the basic functionality is operational
+
+// Simple global variables
+x = 10
+y = 20
+pi = 3.14159
+name = "Keen"
+is_active = true
+
+// Simple arithmetic functions
+add(a, b) = a + b
+multiply(a, b) = a * b
+square(n) = n * n
+double(x) = x * 2
+
+// Function that uses globals
+add_globals() = x + y
+
+// Simple function with block body
+calculate(a, b) {
+    sum = a + b
+    product = a * b
+    result = sum + product
+    result
+}
+
+// Function with single expression
+increment(n) = n + 1
+
+// Test modulo operator
+test_modulo() = 17 % 5
+
+// Test all basic operations
+test_operations() {
+    sum_result = add(5, 3)
+    mult_result = multiply(4, 6)
+    square_result = square(7)
+    mod_result = test_modulo()
+
+    sum_result + mult_result + square_result + mod_result
+}
+
+// Main function combining features
+main() {
+    // Test basic arithmetic
+    basic_sum = add_globals()
+
+    // Test function with block
+    calc_result = calculate(8, 4)
+
+    // Test all operations
+    ops_result = test_operations()
+
+    // Test increment
+    inc_result = increment(15)
+
+    // Simple combination
+    final_result = basic_sum + calc_result + inc_result
+
+    final_result
+}

@@ -1,0 +1,40 @@
+// Working Simple Keen Example
+// This demonstrates only the features that are confirmed to work
+
+// Simple variables
+x = 42
+y = 100
+name = "World"
+
+// Simple functions with expression bodies
+add(a, b) = a + b
+multiply(a, b) = a * b
+double(n) = n * 2
+
+// Function with block body
+calculate_sum(first, second) {
+    result = first + second
+    result
+}
+
+// Function using modulo
+test_mod(a, b) = a % b
+
+// Main function
+main() {
+    // Test basic arithmetic
+    sum_result = add(10, 5)
+    mult_result = multiply(6, 7)
+    double_result = double(8)
+
+    // Test block function
+    calc_result = calculate_sum(20, 25)
+
+    // Test modulo
+    mod_result = test_mod(17, 5)
+
+    // Simple combination
+    final_total = sum_result + mult_result + double_result + calc_result + mod_result
+
+    final_total
+}

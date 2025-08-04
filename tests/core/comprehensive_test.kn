@@ -1,0 +1,288 @@
+// Comprehensive Test for Keen Language Fixes
+// This file tests all the major fixes and features that should now be working
+
+// =============================================================================
+// GLOBAL VARIABLES (should be accessible in functions)
+// =============================================================================
+
+x = 10
+y = 20
+pi = 3.14159
+name = "Keen"
+is_active = true
+
+// Variables with type annotations
+counter: Int = 0
+average: Float = 0.0
+system_name: String = "Test System"
+
+// Variables with mutability
+live mutable_counter = 0
+keep max_value = 100
+
+// =============================================================================
+// SIMPLE FUNCTIONS (should work with manual parser)
+// =============================================================================
+
+// Simple arithmetic functions
+add(a, b) = a + b
+subtract(a, b) = a - b
+multiply(a, b) = a * b
+divide(a, b) = a / b
+modulo(a, b) = a % b
+
+// Function accessing globals
+add_globals() = x + y
+
+// Function with block body (should now work)
+calculate(x, y) {
+    sum = x + y
+    product = x * y
+    result = sum + product
+    result
+}
+
+// Function with complex block
+process_data(input) {
+    // Local variables
+    doubled = input * 2
+    incremented = doubled + 1
+
+    // Conditional logic
+    final_result = incremented > 50 ? incremented : incremented * 2
+
+    // Return final result
+    final_result
+}
+
+// =============================================================================
+// STRING INTERPOLATION (should now work)
+// =============================================================================
+
+// Simple string interpolation
+greeting = "Hello, {name}!"
+status = "System {system_name} is {is_active ? "active" : "inactive"}"
+
+// Function with string interpolation
+greet_user(user_name) {
+    message = "Welcome, {user_name}! Your ID is {counter}"
+    message
+}
+
+// Complex string interpolation
+format_calculation(a, b) {
+    sum = add(a, b)
+    product = multiply(a, b)
+    "Results: {a} + {b} = {sum}, {a} * {b} = {product}"
+}
+
+// =============================================================================
+// LAMBDA EXPRESSIONS (should work better now)
+// =============================================================================
+
+// Simple lambdas
+double = |x| x * 2
+square = |x| x * x
+increment = |x| x + 1
+
+// Lambda with block body
+complex_lambda = |x, y| {
+    sum = x + y
+    product = x * y
+    sum + product
+}
+
+// =============================================================================
+// PIPELINE OPERATIONS (should work)
+// =============================================================================
+
+// Simple pipeline
+simple_pipeline = 5
+    |> double
+    |> increment
+
+// Pipeline with function calls
+function_pipeline = 10
+    |> add(5)
+    |> multiply(2)
+
+// Pipeline with lambdas
+lambda_pipeline = 7
+    |> |x| x * 2
+    |> |x| x + 3
+
+// =============================================================================
+// PATTERN MATCHING (case/when expressions)
+// =============================================================================
+
+// Simple case expression
+test_case(value) {
+    case value {
+        0 -> "zero"
+        1 -> "one"
+        2 -> "two"
+        _ -> "other"
+    }
+}
+
+// When expression with comparisons
+test_when(score) {
+    when score {
+        >= 90 -> "A"
+        >= 80 -> "B"
+        >= 70 -> "C"
+        >= 60 -> "D"
+        _ -> "F"
+    }
+}
+
+// =============================================================================
+// CONSTRUCTOR EXPRESSIONS (should work)
+// =============================================================================
+
+// Simple constructor
+user_id = UserId(id: 12345)
+
+// =============================================================================
+// TERNARY OPERATORS (should work)
+// =============================================================================
+
+// Simple ternary
+max_val = x > y ? x : y
+min_val = x < y ? x : y
+
+// Nested ternary
+classify_number(n) = n > 0 ? "positive" : n < 0 ? "negative" : "zero"
+
+// =============================================================================
+// COMPLEX EXPRESSIONS (combining multiple features)
+// =============================================================================
+
+// Function combining many features
+comprehensive_test(input) {
+    // Block with local variables
+    base_value = input
+
+    // Pipeline with lambda
+    processed = base_value
+        |> |x| x * 2
+        |> |x| x + 10
+
+    // Case expression
+    category = case processed {
+        < 20 -> "small"
+        < 50 -> "medium"
+        _ -> "large"
+    }
+
+    // String interpolation with expressions
+    result_message = "Input {input} processed to {processed}, category: {category}"
+
+    // Ternary decision
+    final_value = processed > 30 ? processed : processed * 2
+
+    // Return complex result
+    final_value
+}
+
+// =============================================================================
+// MAIN FUNCTION (comprehensive test)
+// =============================================================================
+
+main() {
+    // Test basic arithmetic with globals
+    sum_globals = add_globals()
+
+    // Test function with block
+    calc_result = calculate(5, 7)
+
+    // Test string interpolation
+    user_greeting = greet_user("Alice")
+    calc_format = format_calculation(8, 3)
+
+    // Test lambdas
+    doubled_value = double(15)
+    squared_value = square(6)
+
+    // Test pipelines
+    pipeline_result = simple_pipeline
+    func_pipeline_result = function_pipeline
+    lambda_pipeline_result = lambda_pipeline
+
+    // Test pattern matching
+    case_result = test_case(1)
+    when_result = test_when(85)
+
+    // Test ternary
+    max_result = max_val
+    classified = classify_number(-5)
+
+    // Test comprehensive function
+    comprehensive_result = comprehensive_test(12)
+
+    // Test modulo operator
+    mod_result = modulo(17, 5)
+
+    // Combine all results for verification
+    total = sum_globals + calc_result + doubled_value + squared_value +
+            pipeline_result + func_pipeline_result + lambda_pipeline_result +
+            max_result + comprehensive_result + mod_result
+
+    total
+}
+
+// =============================================================================
+// ADDITIONAL TESTS FOR EDGE CASES
+// =============================================================================
+
+// Test nested blocks
+nested_blocks() {
+    outer = {
+        inner = {
+            value = 42
+            value * 2
+        }
+        inner + 10
+    }
+    outer
+}
+
+// Test complex pipeline
+complex_pipeline_test() {
+    [1, 2, 3, 4, 5]
+        |> map(double)
+        |> filter(|x| x > 5)
+        |> reduce(add, 0)
+}
+
+// Test mixed features
+mixed_features_test(n) {
+    // Lambda with string interpolation
+    formatter = |x| "Value: {x}"
+
+    // Case with pipeline
+    result = case n {
+        < 10 -> n |> double |> increment
+        < 20 -> n |> square
+        _ -> n |> |x| x / 2
+    }
+
+    // Format result
+    formatter(result)
+}
+
+// =============================================================================
+// EXPECTED RESULTS
+// =============================================================================
+
+// This test should now pass with all the fixes:
+// 1. Block expressions in functions should work
+// 2. Global variables should be accessible
+// 3. String interpolation should compile
+// 4. Lambda expressions should work better
+// 5. Pattern matching should be supported
+// 6. Pipeline operators should work
+// 7. Modulo operator should work
+
+// The main() function should return a meaningful integer result
+// indicating that all operations completed successfully.

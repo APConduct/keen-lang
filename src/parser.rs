@@ -488,6 +488,15 @@ fn has_complex_expressions(tokens: &[Token]) -> bool {
                 }
             }
 
+            // Check for ) { pattern (function with block body)
+            Token::RightParen => {
+                if i + 1 < tokens.len() {
+                    if let Some(Token::LeftBrace) = tokens.get(i + 1) {
+                        return true; // Force manual parser for function blocks
+                    }
+                }
+            }
+
             // Check for function patterns that use blocks
             Token::RightParen => {
                 if i + 1 < tokens.len() && i + 2 < tokens.len() {
@@ -514,55 +523,8 @@ fn has_complex_expressions(tokens: &[Token]) -> bool {
 
 // Helper function to detect if a LeftBrace is part of a function definition
 fn is_function_block_body(tokens: &[Token], brace_pos: usize) -> bool {
-    // Pattern 1: identifier ( params ) { ... } (function block body)
-    if brace_pos >= 3 {
-        if let (Some(Token::Identifier(_)), Some(Token::LeftParen), Some(Token::RightParen)) = (
-            tokens.get(brace_pos - 3),
-            tokens.get(brace_pos - 2),
-            tokens.get(brace_pos - 1),
-        ) {
-            return true;
-        }
-    }
-
-    // Pattern 2: identifier ( ... params ... ) { ... } (function with parameters)
-    if brace_pos >= 2 {
-        if let Some(Token::RightParen) = tokens.get(brace_pos - 1) {
-            // Look backwards for matching LeftParen
-            let mut paren_depth = 1;
-            let mut i = brace_pos - 2;
-            loop {
-                if i == 0 {
-                    break;
-                }
-                match tokens.get(i) {
-                    Some(Token::RightParen) => paren_depth += 1,
-                    Some(Token::LeftParen) => {
-                        paren_depth -= 1;
-                        if paren_depth == 0 {
-                            // Found matching paren, check if preceded by identifier
-                            if i > 0 {
-                                if let Some(Token::Identifier(_)) = tokens.get(i - 1) {
-                                    return true;
-                                }
-                            }
-                            break;
-                        }
-                    }
-                    _ => {}
-                }
-                i -= 1;
-            }
-        }
-    }
-
-    // Pattern 3: = { ... } (expression body with block) - ALWAYS triggers manual parser
-    if brace_pos > 0 {
-        if let Some(Token::Assign) = tokens.get(brace_pos - 1) {
-            return false; // Force manual parser for block expressions
-        }
-    }
-
+    // Always return false to force manual parser for ALL block expressions
+    // This ensures consistent handling of function blocks and expression blocks
     false
 }
 
@@ -614,29 +576,8 @@ fn parse_item_hybrid(tokens: &[Token], position: &mut usize) -> Result<Item, Str
 
     match item_type {
         ItemType::Function => {
-            // Check if ANY function in the entire file has complex expressions
-            // If so, use manual parser for ALL functions to avoid conflicts
-            let file_has_complex = has_complex_expressions(tokens);
-
-            if file_has_complex
-                || has_string_interpolation(&item_tokens)
-                || has_block_or_lambda(&item_tokens)
-            {
-                parse_item_with_manual_parser(item_tokens)
-            } else {
-                // Simple functions use chumsky parser
-                let chumsky_parser = parser();
-                match chumsky_parser.parse(item_tokens) {
-                    Ok(mut program) => {
-                        if let Some(item) = program.items.pop() {
-                            Ok(item)
-                        } else {
-                            Err("Failed to parse item".to_string())
-                        }
-                    }
-                    Err(_) => Err("Failed to parse item with chumsky".to_string()),
-                }
-            }
+            // Always use manual parser for functions to ensure block support
+            parse_item_with_manual_parser(item_tokens)
         }
         ItemType::Variable => {
             // Variables with complex expressions use manual parser

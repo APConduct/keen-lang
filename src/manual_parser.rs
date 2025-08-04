@@ -448,6 +448,39 @@ impl ManualParser {
             }
         }
 
+        // Check for live/keep mutability keywords
+        if matches!(self.current_token(), Some(Token::Live) | Some(Token::Keep)) {
+            let mutability = match self.current_token() {
+                Some(Token::Live) => Mutability::Live,
+                Some(Token::Keep) => Mutability::Keep,
+                _ => Mutability::Immutable,
+            };
+            self.advance(); // consume mutability keyword
+
+            if let Some(Token::Identifier(var_name)) = self.current_token() {
+                let name = var_name.clone();
+                self.advance(); // consume identifier
+
+                // Optional type annotation
+                let type_annotation = if self.check_token(&Token::Colon) {
+                    self.advance(); // consume ':'
+                    Some(self.parse_type()?)
+                } else {
+                    None
+                };
+
+                self.expect_token(&Token::Assign, "Expected '=' after variable name")?;
+                let value = self.parse_expression()?;
+
+                return Ok(Statement::VariableDecl(VariableDecl {
+                    name,
+                    mutability,
+                    type_annotation,
+                    value,
+                }));
+            }
+        }
+
         // Otherwise, parse as expression statement
         let expr = self.parse_expression()?;
         Ok(Statement::Expression(expr))
@@ -470,6 +503,20 @@ impl ManualParser {
                 }
             }
             _ => false,
+        }
+    }
+
+    fn parse_type(&mut self) -> Result<Type, ParseError> {
+        match self.current_token() {
+            Some(Token::Identifier(name)) => {
+                let type_name = name.clone();
+                self.advance();
+                Ok(Type::Named(type_name))
+            }
+            _ => Err(ParseError {
+                message: "Expected type name".to_string(),
+                position: self.position,
+            }),
         }
     }
 
@@ -975,7 +1022,165 @@ impl ManualParser {
             parts.push(StringPart::Literal(current_literal));
         }
 
+        // If no parts were found, return a simple literal
+        if parts.is_empty() {
+            parts.push(StringPart::Literal(content.to_string()));
+        }
+
         Ok(Expression::StringInterpolation { parts })
+    }
+
+    pub fn parse_program(&mut self) -> Result<Program, ParseError> {
+        let mut items = Vec::new();
+
+        while !self.is_at_end() {
+            match self.parse_item() {
+                Ok(item) => items.push(item),
+                Err(e) => return Err(e),
+            }
+        }
+
+        Ok(Program { items })
+    }
+
+    pub fn parse_item(&mut self) -> Result<Item, ParseError> {
+        // Try to parse different types of items
+        if let Some(Token::Identifier(_)) = self.current_token() {
+            // Could be function or variable
+            if let Some(Token::LeftParen) = self.peek_token() {
+                self.parse_function()
+            } else {
+                self.parse_variable()
+            }
+        } else if matches!(self.current_token(), Some(Token::Live) | Some(Token::Keep)) {
+            self.parse_variable()
+        } else {
+            Err(ParseError {
+                message: "Expected function or variable declaration".to_string(),
+                position: self.position,
+            })
+        }
+    }
+
+    fn parse_function(&mut self) -> Result<Item, ParseError> {
+        // Function name
+        let name = match self.current_token() {
+            Some(Token::Identifier(n)) => n.clone(),
+            _ => {
+                return Err(ParseError {
+                    message: "Expected function name".to_string(),
+                    position: self.position,
+                })
+            }
+        };
+        self.advance();
+
+        // Parameters
+        self.expect_token(&Token::LeftParen, "Expected '(' after function name")?;
+        let mut params = Vec::new();
+
+        while !self.check_token(&Token::RightParen) && !self.is_at_end() {
+            if let Some(Token::Identifier(param_name)) = self.current_token() {
+                params.push(Parameter {
+                    name: param_name.clone(),
+                    type_annotation: None,
+                    mutability: None,
+                });
+                self.advance();
+
+                if self.check_token(&Token::Comma) {
+                    self.advance();
+                }
+            } else {
+                return Err(ParseError {
+                    message: "Expected parameter name".to_string(),
+                    position: self.position,
+                });
+            }
+        }
+
+        self.expect_token(&Token::RightParen, "Expected ')' after parameters")?;
+
+        // Optional return type
+        let return_type = if self.check_token(&Token::Colon) {
+            self.advance();
+            Some(self.parse_type()?)
+        } else {
+            None
+        };
+
+        // Function body
+        let body = if self.check_token(&Token::Assign) {
+            self.advance();
+            let expr = self.parse_expression()?;
+            FunctionBody::Expression(expr)
+        } else if self.check_token(&Token::LeftBrace) {
+            self.advance();
+            let mut statements = Vec::new();
+
+            while !self.check_token(&Token::RightBrace) && !self.is_at_end() {
+                statements.push(self.parse_statement()?);
+            }
+
+            self.expect_token(&Token::RightBrace, "Expected '}' after function body")?;
+            FunctionBody::Block(statements)
+        } else {
+            return Err(ParseError {
+                message: "Expected function body (= expr or { ... })".to_string(),
+                position: self.position,
+            });
+        };
+
+        Ok(Item::Function(Function {
+            name,
+            params,
+            return_type,
+            body,
+        }))
+    }
+
+    fn parse_variable(&mut self) -> Result<Item, ParseError> {
+        // Check for mutability keywords
+        let mutability = if self.check_token(&Token::Live) {
+            self.advance();
+            Mutability::Live
+        } else if self.check_token(&Token::Keep) {
+            self.advance();
+            Mutability::Keep
+        } else {
+            Mutability::Immutable
+        };
+
+        // Variable name
+        let name = match self.current_token() {
+            Some(Token::Identifier(n)) => n.clone(),
+            _ => {
+                return Err(ParseError {
+                    message: "Expected variable name".to_string(),
+                    position: self.position,
+                })
+            }
+        };
+        self.advance();
+
+        // Optional type annotation
+        let type_annotation = if self.check_token(&Token::Colon) {
+            self.advance();
+            Some(self.parse_type()?)
+        } else {
+            None
+        };
+
+        // Assignment
+        self.expect_token(&Token::Assign, "Expected '=' after variable name")?;
+        let value = self.parse_expression()?;
+
+        Ok(Item::VariableDecl(VariableDecl {
+            name,
+            mutability,
+            type_annotation,
+            value,
+        }))
     }
 
     fn parse_method_chain(&mut self, mut expr: Expression) -> Result<Expression, ParseError> {

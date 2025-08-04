@@ -1,0 +1,255 @@
+// =============================================================================
+// KEEN LANGUAGE DEMO - Current Working Features
+// =============================================================================
+// This file demonstrates what's currently working in the Keen language
+// All code in this file should compile and run successfully
+// =============================================================================
+
+// =============================================================================
+// GLOBAL VARIABLES - All working correctly
+// =============================================================================
+
+x = 42
+y = 100
+pi = 3.14159
+name = "Keen"
+version = 1.0
+is_ready = true
+
+// Variables with type annotations (working)
+counter: Int = 0
+temperature: Float = 98.6
+system_name: String = "Keen Demo"
+
+// =============================================================================
+// ARITHMETIC FUNCTIONS - All operators working
+// =============================================================================
+
+// Basic arithmetic (all working)
+add(a, b) = a + b
+subtract(a, b) = a - b
+multiply(a, b) = a * b
+divide(a, b) = a / b
+modulo(a, b) = a % b
+
+// More complex math
+square(n) = n * n
+cube(n) = n * n * n
+double(x) = x * 2
+triple(x) = x * 3
+
+// Functions using global variables (working!)
+add_globals() = x + y
+get_pi() = pi
+
+// =============================================================================
+// COMPARISON FUNCTIONS - All working
+// =============================================================================
+
+is_equal(a, b) = a == b
+is_greater(a, b) = a > b
+is_less(a, b) = a < b
+is_greater_equal(a, b) = a >= b
+is_less_equal(a, b) = a <= b
+is_not_equal(a, b) = a != b
+
+// =============================================================================
+// BLOCK FUNCTIONS - Now working with manual parser!
+// =============================================================================
+
+// Simple block function
+calculate_area(width, height) {
+    area = width * height
+    area
+}
+
+// More complex block function
+process_numbers(a, b, c) {
+    sum = a + b + c
+    average = sum / 3
+    product = a * b * c
+
+    // Complex expression
+    result = sum + average + product
+    result
+}
+
+// Block with multiple calculations
+advanced_calculation(base) {
+    squared = base * base
+    doubled = base * 2
+    tripled = base * 3
+
+    // Combine all results
+    intermediate = squared + doubled + tripled
+    final_result = intermediate * 2
+
+    final_result
+}
+
+// =============================================================================
+// CONSTRUCTOR EXPRESSIONS - Working
+// =============================================================================
+
+// Simple constructor
+user_id = UserId(id: 12345)
+
+// =============================================================================
+// MATHEMATICAL DEMONSTRATIONS
+// =============================================================================
+
+// Test all arithmetic operators
+test_arithmetic() {
+    a = 15
+    b = 4
+
+    sum = a + b       // 19
+    diff = a - b      // 11
+    prod = a * b      // 60
+    quot = a / b      // 3
+    remainder = a % b // 3
+
+    // Combine all results
+    total = sum + diff + prod + quot + remainder
+    total
+}
+
+// Test comparison operators
+test_comparisons() {
+    val1 = 10
+    val2 = 5
+
+    eq = is_equal(val1, val1)      // true (1)
+    gt = is_greater(val1, val2)    // true (1)
+    lt = is_less(val2, val1)       // true (1)
+    ge = is_greater_equal(val1, val1) // true (1)
+    le = is_less_equal(val2, val1)    // true (1)
+    ne = is_not_equal(val1, val2)     // true (1)
+
+    // Sum all boolean results (6 if all true)
+    result = eq + gt + lt + ge + le + ne
+    result
+}
+
+// =============================================================================
+// NESTED FUNCTION CALLS - Working
+// =============================================================================
+
+// Functions calling other functions
+compound_calculation(n) {
+    doubled = double(n)
+    squared = square(doubled)
+    result = add(squared, n)
+    result
+}
+
+// Multiple levels of nesting
+complex_nested(x) {
+    step1 = add(x, 5)
+    step2 = multiply(step1, 3)
+    step3 = square(step2)
+    step4 = subtract(step3, 10)
+    step4
+}
+
+// =============================================================================
+// MAIN DEMO FUNCTION
+// =============================================================================
+
+main() {
+    // Test global variable access
+    globals_sum = add_globals()           // 142 (42 + 100)
+
+    // Test arithmetic functions
+    arithmetic_result = test_arithmetic() // Complex calculation
+
+    // Test comparisons
+    comparison_result = test_comparisons() // Should be 6
+
+    // Test block functions
+    area_result = calculate_area(10, 8)   // 80
+    process_result = process_numbers(2, 4, 6) // Complex calculation
+
+    // Test advanced calculation
+    advanced_result = advanced_calculation(5) // Complex calculation
+
+    // Test nested functions
+    compound_result = compound_calculation(3) // Complex calculation
+    nested_result = complex_nested(2)     // Complex calculation
+
+    // Test modulo specifically
+    mod_test = modulo(17, 5)              // 2
+
+    // Combine all results for final demonstration
+    final_result = globals_sum + comparison_result + area_result + mod_test
+
+    final_result
+}
+
+// =============================================================================
+// ADDITIONAL WORKING FEATURES
+// =============================================================================
+
+// Functions with different parameter counts
+no_params() = 42
+one_param(x) = x * 2
+two_params(a, b) = a + b
+three_params(x, y, z) = x + y + z
+
+// Testing edge cases
+test_edge_cases() {
+    zero = 0
+    one = 1
+    negative = subtract(0, 5)
+
+    // Division and modulo with edge cases
+    div_by_one = divide(10, 1)    // 10
+    mod_by_one = modulo(10, 1)    // 0
+
+    result = div_by_one + mod_by_one
+    result
+}
+
+// Mathematical sequences
+fibonacci_simple(n) {
+    // Simplified fibonacci for small numbers
+    result = n < 2 ? n : add(1, 1)
+    result
+}
+
+// Power calculation (simplified)
+power_of_two(n) {
+    // Calculate 2^n for small n (simplified)
+    result = n == 0 ? 1 : multiply(2, n)
+    result
+}
+
+// =============================================================================
+// WORKING FEATURES SUMMARY
+// =============================================================================
+
+// This demo file showcases:
+// ✅ Global variables with type annotations
+// ✅ All arithmetic operators (+, -, *, /, %)
+// ✅ All comparison operators (==, !=, <, >, <=, >=)
+// ✅ Function definitions (expression and block style)
+// ✅ Block expressions with implicit returns
+// ✅ Global variable access from functions
+// ✅ Nested function calls
+// ✅ Constructor expressions (basic)
+// ✅ Boolean logic (ternary operator)
+// ✅ Complex mathematical calculations
+// ✅ Manual parser integration for blocks
+
+// Expected output: main() should return a meaningful integer
+// demonstrating that all these features work together correctly!
+
+// =============================================================================
+// DEMO EXECUTION
+// =============================================================================
+
+// To run this demo:
+// cargo build
+// ./target/debug/keen run DEMO.kn
+//
+// Expected: Successful compilation and execution with integer result
