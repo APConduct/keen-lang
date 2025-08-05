@@ -2,12 +2,12 @@
 // USER-DEFINED TYPES DEMO - Complete Feature Demonstration
 // =============================================================================
 // This file demonstrates that user-defined types are now fully working in Keen!
-// ✅ Product types with named fields
-// ✅ Union types (sum types)
-// ✅ Constructor expressions with named arguments
-// ✅ Pattern matching with user-defined types
-// ✅ Type annotations on variables and parameters
-// ✅ Functions returning user-defined types
+// Product types with named fields
+// Union types (sum types)
+// Constructor expressions with named arguments
+// Pattern matching with user-defined types
+// Type annotations on variables and parameters
+// Functions returning user-defined types
 // =============================================================================
 
 // =============================================================================
@@ -20,10 +20,10 @@ type Email = Email(address: String)
 
 // Complex product type
 type User = User(
-    id: UserId,
-    name: String,
-    email: Email,
-    age: Int
+ id: UserId,
+ name: String,
+ email: Email,
+ age: Int
 )
 
 // Another product type
@@ -41,15 +41,15 @@ type Option = Some(value: Int) | None()
 
 // Geometric shapes
 type Shape =
-    Circle(center: Point, radius: Float) |
-    Rectangle(corner: Point, width: Float, height: Float) |
-    Triangle(p1: Point, p2: Point, p3: Point)
+ Circle(center: Point, radius: Float) |
+ Rectangle(corner: Point, width: Float, height: Float) |
+ Triangle(p1: Point, p2: Point, p3: Point)
 
 // Authentication status
 type AuthStatus =
-    LoggedIn(user: User) |
-    Guest() |
-    Expired(user: User)
+ LoggedIn(user: User) |
+ Guest() |
+ Expired(user: User)
 
 // =============================================================================
 // CONSTRUCTOR EXPRESSIONS - Creating instances
@@ -57,17 +57,17 @@ type AuthStatus =
 
 // Create users with named constructor arguments
 alice: User = User(
-    id: UserId(id: 1),
-    name: "Alice Johnson",
-    email: Email(address: "alice@test.com"),
-    age: 28
+ id: UserId(id: 1),
+ name: "Alice Johnson",
+ email: Email(address: "alice@test.com"),
+ age: 28
 )
 
 bob: User = User(
-    id: UserId(id: 2),
-    name: "Bob Smith",
-    email: Email(address: "bob@test.com"),
-    age: 35
+ id: UserId(id: 2),
+ name: "Bob Smith",
+ email: Email(address: "bob@test.com"),
+ age: 35
 )
 
 // Create geometric objects
@@ -75,14 +75,14 @@ origin: Point = Point(x: 0.0, y: 0.0)
 center: Point = Point(x: 5.0, y: 5.0)
 
 circle: Shape = Circle(
-    center: center,
-    radius: 3.0
+ center: center,
+ radius: 3.0
 )
 
 rectangle: Shape = Rectangle(
-    corner: origin,
-    width: 10.0,
-    height: 8.0
+ corner: origin,
+ width: 10.0,
+ height: 8.0
 )
 
 // Create result values
@@ -99,31 +99,36 @@ no_value: Option = None()
 
 // Function creating user-defined types
 create_user(name: String, email_addr: String, age: Int): User = {
-    user_id = UserId(id: 100)
-    user_email = Email(address: email_addr)
+ user_id = UserId(id: 100)
+ user_email = Email(address: email_addr)
 
-    User(
-        id: user_id,
-        name: name,
-        email: user_email,
-        age: age
-    )
+ User(
+ id: user_id,
+ name: name,
+ email: user_email,
+ age: age
+ )
 }
 
 // Function returning Result type
 validate_age(age: Int): Result = {
-    case age >= 0 && age <= 150 {
-        true -> Ok(value: "Valid age")
-        false -> Error(message: "Invalid age range")
+    when age {
+        >= 0 -> {
+            when age {
+                <= 150 -> Ok("Valid age")
+                _ -> Error("Invalid age range")
+            }
+        }
+        _ -> Error("Invalid age range")
     }
 }
 
 // Function returning Option type
 find_user_by_id(target_id: Int): Option = {
     case target_id {
-        1 -> Some(value: 1)  // Found Alice
-        2 -> Some(value: 2)  // Found Bob
-        _ -> None()          // Not found
+        1 -> Some(1)  // Found Alice
+        2 -> Some(2)  // Found Bob
+        _ -> None()   // Not found
     }
 }
 
@@ -133,49 +138,49 @@ find_user_by_id(target_id: Int): Option = {
 
 // Pattern match on Result type
 process_result(result: Result): Int = {
-    case result {
-        Ok(value) -> 1      // Success
-        Error(message) -> 0 // Failure
-    }
+ case result {
+ Ok(value) -> 1 // Success
+ Error(message) -> 0 // Failure
+ }
 }
 
 // Pattern match on Option type
 handle_option(opt: Option): Int = {
-    case opt {
-        Some(value) -> value
-        None() -> -1
-    }
+ case opt {
+ Some(value) -> value
+ None() -> -1
+ }
 }
 
 // Pattern match on Shape type
 calculate_area(shape: Shape): Float = {
-    case shape {
-        Circle(center, radius) -> 3.14159 * radius * radius
-        Rectangle(corner, width, height) -> width * height
-        Triangle(p1, p2, p3) -> 6.0  // Simplified calculation
-    }
+ case shape {
+ Circle(center, radius) -> 3.14159 * radius * radius
+ Rectangle(corner, width, height) -> width * height
+ Triangle(p1, p2, p3) -> 6.0 // Simplified calculation
+ }
 }
 
 // Pattern match on AuthStatus
 get_user_status(status: AuthStatus): Int = {
-    case status {
-        LoggedIn(user) -> 1   // Active user
-        Guest() -> 0          // Anonymous
-        Expired(user) -> -1   // Needs re-auth
-    }
+ case status {
+ LoggedIn(user) -> 1 // Active user
+ Guest() -> 0 // Anonymous
+ Expired(user) -> -1 // Needs re-auth
+ }
 }
 
 // Complex pattern matching with nested destructuring
 analyze_user(user: User): String = {
-    case user {
-        User(UserId(id), name, Email(email_addr), age) -> {
-            case age {
-                < 18 -> "minor"
-                < 65 -> "adult"
-                _ -> "senior"
-            }
-        }
-    }
+ case user {
+ User(UserId(id), name, Email(email_addr), age) -> {
+ case age {
+ < 18 -> "minor"
+ < 65 -> "adult"
+ _ -> "senior"
+ }
+ }
+ }
 }
 
 // =============================================================================
@@ -184,47 +189,47 @@ analyze_user(user: User): String = {
 
 // Function with multiple user-defined type parameters
 compare_users(user1: User, user2: User): Result = {
-    case user1 {
-        User(UserId(id1), name1, _, age1) -> {
-            case user2 {
-                User(UserId(id2), name2, _, age2) -> {
-                    case id1 == id2 {
-                        true -> Ok(value: "Same user")
-                        false -> Ok(value: "Different users")
-                    }
-                }
-            }
-        }
-    }
+ case user1 {
+ User(UserId(id1), name1, _, age1) -> {
+ case user2 {
+     User(UserId(id2), name2, _, age2) -> {
+         case id1 == id2 {
+             true -> Ok("Same user")
+             false -> Ok("Different users")
+         }
+     }
+ }
+ }
+ }
 }
 
 // Function combining multiple type operations
 process_shape_collection(shapes: List): Result = {
-    // In a real implementation, this would process a list of shapes
-    // For now, just test basic shape operations
-    test_shape = Circle(center: origin, radius: 2.0)
-    area = calculate_area(test_shape)
+ // In a real implementation, this would process a list of shapes
+ // For now, just test basic shape operations
+ test_shape = Circle(center: origin, radius: 2.0)
+ area = calculate_area(test_shape)
 
-    case area > 0.0 {
-        true -> Ok(value: "Shapes processed")
-        false -> Error(message: "Invalid shapes")
-    }
+ case area > 0.0 {
+     true -> Ok("Shapes processed")
+     false -> Error("Invalid shapes")
+ }
 }
 
 // Authentication workflow
 authenticate_user(user_id: Int): AuthStatus = {
-    found_user = find_user_by_id(user_id)
+ found_user = find_user_by_id(user_id)
 
-    case found_user {
-        Some(id) -> {
-            case id {
-                1 -> LoggedIn(user: alice)
-                2 -> LoggedIn(user: bob)
-                _ -> Guest()
-            }
-        }
-        None() -> Guest()
-    }
+ case found_user {
+ Some(id) -> {
+     case id {
+         1 -> LoggedIn(alice)
+         2 -> LoggedIn(bob)
+         _ -> Guest()
+     }
+ }
+ None() -> Guest()
+ }
 }
 
 // =============================================================================
@@ -232,55 +237,55 @@ authenticate_user(user_id: Int): AuthStatus = {
 // =============================================================================
 
 main(): Int = {
-    // Test constructor expressions
-    charlie = create_user("Charlie Brown", "charlie@test.com", 30)
+ // Test constructor expressions
+ charlie = create_user("Charlie Brown", "charlie@test.com", 30)
 
-    // Test Result type operations
-    age_check1 = validate_age(25)
-    age_check2 = validate_age(-5)
+ // Test Result type operations
+ age_check1 = validate_age(25)
+ age_check2 = validate_age(-5)
 
-    result1 = process_result(age_check1)  // Should return 1 (success)
-    result2 = process_result(age_check2)  // Should return 0 (failure)
+ result1 = process_result(age_check1) // Should return 1 (success)
+ result2 = process_result(age_check2) // Should return 0 (failure)
 
-    // Test Option type operations
-    user_lookup1 = find_user_by_id(1)
-    user_lookup2 = find_user_by_id(99)
+ // Test Option type operations
+ user_lookup1 = find_user_by_id(1)
+ user_lookup2 = find_user_by_id(99)
 
-    option1 = handle_option(user_lookup1)  // Should return 1 (Alice's ID)
-    option2 = handle_option(user_lookup2)  // Should return -1 (not found)
+ option1 = handle_option(user_lookup1) // Should return 1 (Alice's ID)
+ option2 = handle_option(user_lookup2) // Should return -1 (not found)
 
-    // Test Shape type operations
-    circle_area = calculate_area(circle)
-    rect_area = calculate_area(rectangle)
+ // Test Shape type operations
+ circle_area = calculate_area(circle)
+ rect_area = calculate_area(rectangle)
 
-    // Test authentication workflow
-    auth1 = authenticate_user(1)
-    auth_status1 = get_user_status(auth1)  // Should return 1 (logged in)
+ // Test authentication workflow
+ auth1 = authenticate_user(1)
+ auth_status1 = get_user_status(auth1) // Should return 1 (logged in)
 
-    auth2 = authenticate_user(99)
-    auth_status2 = get_user_status(auth2)  // Should return 0 (guest)
+ auth2 = authenticate_user(99)
+ auth_status2 = get_user_status(auth2) // Should return 0 (guest)
 
-    // Test user analysis
-    alice_category = analyze_user(alice)
-    bob_category = analyze_user(bob)
+ // Test user analysis
+ alice_category = analyze_user(alice)
+ bob_category = analyze_user(bob)
 
-    // Test user comparison
-    comparison = compare_users(alice, bob)
-    comparison_result = process_result(comparison)
+ // Test user comparison
+ comparison = compare_users(alice, bob)
+ comparison_result = process_result(comparison)
 
-    // Test shape collection processing
-    shape_processing = process_shape_collection([])
-    shape_result = process_result(shape_processing)
+ // Test shape collection processing
+ shape_processing = process_shape_collection([])
+ shape_result = process_result(shape_processing)
 
-    // Return sum of all test results to verify everything worked
-    // Expected calculation:
-    // result1 (1) + result2 (0) + option1 (1) + option2 (-1) +
-    // auth_status1 (1) + auth_status2 (0) + comparison_result (1) + shape_result (1)
-    // = 1 + 0 + 1 + (-1) + 1 + 0 + 1 + 1 = 4
+ // Return sum of all test results to verify everything worked
+ // Expected calculation:
+ // result1 (1) + result2 (0) + option1 (1) + option2 (-1) +
+ // auth_status1 (1) + auth_status2 (0) + comparison_result (1) + shape_result (1)
+ // = 1 + 0 + 1 + (-1) + 1 + 0 + 1 + 1 = 4
 
-    total = result1 + result2 + option1 + option2 + auth_status1 + auth_status2 + comparison_result + shape_result
+ total = result1 + result2 + option1 + option2 + auth_status1 + auth_status2 + comparison_result + shape_result
 
-    total
+ total
 }
 
 // =============================================================================
@@ -289,56 +294,71 @@ main(): Int = {
 
 // Test that all types can be created and used
 test_type_creation(): Int = {
-    // Test all product types
-    test_user_id = UserId(id: 999)
-    test_email = Email(address: "test@example.com")
-    test_point = Point(x: 1.0, y: 2.0)
+ // Test all product types
+ test_user_id = UserId(id: 999)
+ test_email = Email(address: "test@example.com")
+ test_point = Point(x: 1.0, y: 2.0)
 
-    test_user = User(
-        id: test_user_id,
-        name: "Test User",
-        email: test_email,
-        age: 25
-    )
+ test_user = User(
+ id: test_user_id,
+ name: "Test User",
+ email: test_email,
+ age: 25
+ )
 
-    // Test all union types
-    test_ok = Ok(value: "test")
-    test_error = Error(message: "test error")
-    test_some = Some(value: 123)
-    test_none = None()
+ // Test all union types
+ test_ok = Ok(value: "test")
+ test_error = Error(message: "test error")
+ test_some = Some(123)
+ test_none = None()
 
-    test_circle = Circle(center: test_point, radius: 1.0)
-    test_rect = Rectangle(corner: test_point, width: 2.0, height: 3.0)
-    test_triangle = Triangle(p1: test_point, p2: test_point, p3: test_point)
+ test_circle = Circle(center: test_point, radius: 1.0)
+ test_rect = Rectangle(corner: test_point, width: 2.0, height: 3.0)
+ test_triangle = Triangle(p1: test_point, p2: test_point, p3: test_point)
 
-    test_logged_in = LoggedIn(user: test_user)
-    test_guest = Guest()
-    test_expired = Expired(user: test_user)
+ test_logged_in = LoggedIn(test_user)
+ test_guest = Guest()
+ test_expired = Expired(test_user)
 
-    // If we reach here, all types were created successfully
-    1
+ // If we reach here, all types were created successfully
+ 1
 }
 
 // Test that all pattern matching works
 test_pattern_matching(): Int = {
-    // Test each pattern matching function
-    ok_result = process_result(Ok(value: "test"))
-    error_result = process_result(Error(message: "test"))
+ // Test each pattern matching function
+ ok_result = process_result(Ok(value: "test"))
+ error_result = process_result(Error(message: "test"))
 
-    some_result = handle_option(Some(value: 5))
-    none_result = handle_option(None())
+ some_result = handle_option(Some(value: 5))
+ none_result = handle_option(None())
 
-    test_point = Point(x: 0.0, y: 0.0)
-    circle_area = calculate_area(Circle(center: test_point, radius: 1.0))
+ test_point = Point(x: 0.0, y: 0.0)
+ circle_area = calculate_area(Circle(center: test_point, radius: 1.0))
 
-    logged_in_status = get_user_status(LoggedIn(user: alice))
-    guest_status = get_user_status(Guest())
+ logged_in_status = get_user_status(LoggedIn(alice))
+ guest_status = get_user_status(Guest())
 
-    // Return success if all pattern matches worked
-    case ok_result == 1 && error_result == 0 && some_result == 5 && none_result == -1 {
-        true -> 1
-        false -> 0
-    }
+ // Return success if all pattern matches worked
+ when ok_result {
+     1 -> {
+         when error_result {
+             0 -> {
+                 when some_result {
+                     5 -> {
+                         when none_result {
+                             -1 -> 1
+                             _ -> 0
+                         }
+                     }
+                     _ -> 0
+                 }
+             }
+             _ -> 0
+         }
+     }
+     _ -> 0
+ }
 }
 
 // =============================================================================
@@ -346,44 +366,44 @@ test_pattern_matching(): Int = {
 // =============================================================================
 
 /*
-🎉 USER-DEFINED TYPES ARE NOW FULLY WORKING IN KEEN!
+ USER-DEFINED TYPES ARE NOW FULLY WORKING IN KEEN!
 
-✅ FEATURES DEMONSTRATED:
+ FEATURES DEMONSTRATED:
 
 1. PRODUCT TYPES:
-   • UserId, Email, User, Point - all working
-   • Named field constructors: User(id: ..., name: ..., email: ..., age: ...)
-   • Nested product types: User contains UserId and Email
+ UserId, Email, User, Point - all working
+ Named field constructors: User(id: ..., name: ..., email: ..., age: ...)
+ Nested product types: User contains UserId and Email
 
 2. UNION TYPES:
-   • Result = Ok(value) | Error(message) - classic Either type
-   • Option = Some(value) | None() - classic Maybe type
-   • Shape = Circle(...) | Rectangle(...) | Triangle(...) - geometric variants
-   • AuthStatus = LoggedIn(user) | Guest() | Expired(user) - stateful variants
+ Result = Ok(value) | Error(message) - classic Either type
+ Option = Some(value) | None() - classic Maybe type
+ Shape = Circle(...) | Rectangle(...) | Triangle(...) - geometric variants
+ AuthStatus = LoggedIn(user) | Guest() | Expired(user) - stateful variants
 
 3. PATTERN MATCHING:
-   • Exhaustive case expressions with user-defined types
-   • Destructuring in patterns: User(UserId(id), name, Email(addr), age)
-   • Nested pattern matching with proper scoping
-   • Wildcard patterns and guards
+ Exhaustive case expressions with user-defined types
+ Destructuring in patterns: User(UserId(id), name, Email(addr), age)
+ Nested pattern matching with proper scoping
+ Wildcard patterns and guards
 
 4. TYPE ANNOTATIONS:
-   • Function parameters: func(user: User, result: Result)
-   • Function return types: func(): Result
-   • Variable declarations: alice: User = User(...)
+ Function parameters: func(user: User, result: Result)
+ Function return types: func(): Result
+ Variable declarations: alice: User = User(...)
 
 5. CONSTRUCTOR EXPRESSIONS:
-   • Named field syntax: User(id: UserId(id: 1), name: "Alice", ...)
-   • Nested constructors: Circle(center: Point(x: 0.0, y: 0.0), radius: 3.0)
-   • Type inference working correctly
+ Named field syntax: User(id: UserId(id: 1), name: "Alice", ...)
+ Nested constructors: Circle(center: Point(x: 0.0, y: 0.0), radius: 3.0)
+ Type inference working correctly
 
 6. INTEGRATION:
-   • User-defined types work seamlessly with:
-     - Function parameters and return values
-     - Variable declarations and assignments
-     - Pattern matching in case/when expressions
-     - Nested type compositions
-     - Control flow and logic
+ User-defined types work seamlessly with:
+ - Function parameters and return values
+ - Variable declarations and assignments
+ - Pattern matching in case/when expressions
+ - Nested type compositions
+ - Control flow and logic
 
 This makes Keen a fully functional language with a sophisticated type system!
 The user-defined type features are production-ready and work correctly with

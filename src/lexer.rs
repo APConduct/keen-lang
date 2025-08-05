@@ -45,6 +45,14 @@ pub enum Token {
     #[token("keep")]
     Keep,
 
+    // Logical operators
+    #[token("&&")]
+    LogicalAnd,
+    #[token("||")]
+    LogicalOr,
+    #[token("!")]
+    Not,
+
     // Operators and punctuation
     #[token("=")]
     Assign,
@@ -104,9 +112,9 @@ pub enum Token {
     RightBracket,
 
     // Whitespace and comments (ignored)
-    #[regex(r"[ \t\n\f]+", logos::skip)]
-    #[regex(r"//[^\n]*", logos::skip)]
-    #[regex(r"/\*([^*]|\*[^/])*\*/", logos::skip)]
+    #[regex(r"[ \t\n\f\r]+", logos::skip)]
+    #[regex(r"//[^\r\n]*", logos::skip)]
+    #[regex(r"/\*[^*]*\*+([^/*][^*]*\*+)*/", logos::skip)]
     Whitespace,
 }
 
