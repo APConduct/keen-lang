@@ -1,0 +1,60 @@
+// Mutability Reproduce Test - Try to recreate the exact error
+// This test tries to reproduce the "variable declared multiple times" error
+
+// Simple immutable variables
+x = 10
+y = 20
+
+// Function that might cause the variable redeclaration error
+process_data() {
+    live result = 0
+    live items_processed = 0
+    
+    // These reassignments might be parsed as new declarations
+    items_processed = items_processed + 1
+    result = result + 10
+    
+    result + items_processed
+}
+
+// Another function with multiple live variables and reassignments
+test_mutability() {
+    live local_counter = 5
+    local_counter = local_counter + 1
+    local_counter
+}
+
+// Function with live parameter that gets reassigned
+increment_value(live value: Int): Int {
+    value = value + 1
+    value
+}
+
+// Main function
+main(): Int = {
+    // Test basic mutability
+    mut_result = test_mutability()
+    
+    // Test function with live parameter
+    test_value = 10
+    inc_result = increment_value(test_value)
+    
+    // Test processing function
+    proc_result = process_data()
+    
+    // Return combined result
+    mut_result + inc_result + proc_result
+}
+
+// Test expressions with accumulator
+test_expressions(): Int = {
+    live accumulator = 0
+    
+    // Test in ternary
+    accumulator = accumulator > 0 ? accumulator * 2 : 1
+    
+    // Test in arithmetic
+    accumulator = accumulator + 5
+    
+    accumulator
+}

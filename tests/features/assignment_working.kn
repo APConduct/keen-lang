@@ -1,0 +1,86 @@
+// Assignment Working Test - Demonstrates the Assignment vs VariableDecl fix
+// This test shows that variable reassignment now works properly
+
+// Simple immutable variables
+x = 10
+y = 20
+
+// Test function with live variables and reassignment
+test_assignment() {
+    live counter = 5
+    // This assignment should now work without "variable declared multiple times" error
+    counter = counter + 1
+    counter = counter * 2
+    counter
+}
+
+// Test function with multiple live variables and assignments
+test_multiple_assignments() {
+    live first = 10
+    live second = 20
+    
+    // Multiple assignments to different variables
+    first = first + 5    // first = 15
+    second = second * 2  // second = 40
+    
+    // More assignments
+    first = first + second  // first = 55
+    second = first - 10     // second = 45
+    
+    first + second  // 100
+}
+
+// Test live parameter assignment
+increment_and_double(live value: Int): Int {
+    value = value + 1   // Assignment to parameter
+    value = value * 2   // Another assignment
+    value
+}
+
+// Test mixed declarations and assignments
+test_mixed() {
+    live accumulator = 0
+    live multiplier = 2
+    
+    // Chain of assignments
+    accumulator = accumulator + 10  // 10
+    accumulator = accumulator * multiplier  // 20
+    multiplier = multiplier + 1  // 3
+    accumulator = accumulator + multiplier  // 23
+    
+    accumulator
+}
+
+// Main function to test all assignment scenarios
+main(): Int = {
+    // Test basic assignment
+    result1 = test_assignment()  // Should be (5 + 1) * 2 = 12
+    
+    // Test multiple assignments
+    result2 = test_multiple_assignments()  // Should be 100
+    
+    // Test parameter assignment
+    result3 = increment_and_double(5)  // Should be (5 + 1) * 2 = 12
+    
+    // Test mixed assignments
+    result4 = test_mixed()  // Should be 23
+    
+    // Return sum to verify all worked
+    result1 + result2 + result3 + result4  // 12 + 100 + 12 + 23 = 147
+}
+
+// Test that regular (non-live) variables still work as declarations
+test_regular_declarations() {
+    x = 5      // Declaration
+    y = x + 3  // Declaration using x
+    z = y * 2  // Declaration using y
+    z          // 16
+}
+
+// Test shadowing still works
+test_shadowing() {
+    value = 10      // First declaration
+    value = 20      // This is shadowing (new declaration), not assignment
+    value = value + 5  // Another shadowing
+    value           // 25
+}

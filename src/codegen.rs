@@ -504,6 +504,31 @@ impl KeenCodegen {
                 variables.insert(var_decl.name.clone(), var);
                 Ok(val)
             }
+            ast::Statement::Assignment { name, value } => {
+                let val = KeenCodegen::compile_expression_static(
+                    value,
+                    builder,
+                    variables,
+                    int_type,
+                    float_type,
+                    bool_type,
+                    pointer_type,
+                )?;
+                // Look up existing variable
+                if let Some(&var) = variables.get(name) {
+                    // Assign to existing variable
+                    builder.def_var(var, val);
+                    Ok(val)
+                } else {
+                    // Variable not found - treat as implicit declaration for now
+                    // This handles the case where `x = 5` is the first occurrence
+                    let var = Variable::new(variables.len());
+                    builder.declare_var(var, int_type); // Default to int type
+                    builder.def_var(var, val);
+                    variables.insert(name.clone(), var);
+                    Ok(val)
+                }
+            }
             ast::Statement::DestructuringDecl { pattern: _, value } => {
                 // For now, just compile the value
                 // TODO: Implement proper destructuring

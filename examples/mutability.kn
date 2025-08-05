@@ -1,6 +1,6 @@
 // Immutable by default
 count = 0
-name = “Alice”
+name = "Alice"
 data = load_config()
 
 // Explicit mutability with ‘live’
@@ -10,7 +10,7 @@ live position = Point(0.0, 0.0)
 
 // Usage
 counter = counter + 1           // OK
-cache.insert(“key”, “value”)    // OK
+cache.insert("key", "value")    // OK
 position = Point(1.0, 2.0)      // OK
 
 // This would error:
@@ -35,7 +35,7 @@ live user_state = LoggedOut
 case user_input {
     Login(credentials) -> {
         user_state = authenticate(credentials)
-        results.push(“Login attempt”)
+        results.push("Login attempt")
     }
     Logout -> {
     user_state = LoggedOut

@@ -1,0 +1,213 @@
+// Simplified Pattern Matching Test - Working Version
+// Tests basic pattern matching features that are currently supported
+
+// Simple union type for testing
+type Result = Ok(value: Int) | Error(message: String)
+
+// Simple shape type for testing
+type Shape = Circle(radius: Float) | Rectangle(width: Float, height: Float)
+
+// Basic pattern matching with Result type
+process_result(result: Result): Int = {
+    case result {
+        Ok(value) -> value
+        Error(message) -> 0
+    }
+}
+
+// Pattern matching with Shape type
+get_shape_info(shape: Shape): Int = {
+    case shape {
+        Circle(radius) -> 1
+        Rectangle(width, height) -> 2
+    }
+}
+
+// Simple when expression for conditional logic
+grade_score(score: Int): String = {
+    when score {
+        >= 90 -> "A"
+        >= 80 -> "B"
+        >= 70 -> "C"
+        >= 60 -> "D"
+        _ -> "F"
+    }
+}
+
+// Basic case expression with literals
+classify_number(n: Int): String = {
+    case n {
+        0 -> "zero"
+        1 -> "one"
+        2 -> "two"
+        _ -> "other"
+    }
+}
+
+// Pattern matching with simple destructuring
+extract_value(result: Result): Int = {
+    case result {
+        Ok(val) -> val * 2
+        Error(_) -> -1
+    }
+}
+
+// When expression with simple conditions
+check_range(value: Int): String = {
+    when value {
+        < 0 -> "negative"
+        == 0 -> "zero"
+        > 0 -> "positive"
+        _ -> "unknown"
+    }
+}
+
+// Test nested case expressions
+process_nested(outer: Result): Int = {
+    case outer {
+        Ok(inner_value) -> {
+            case inner_value {
+                < 10 -> 1
+                < 20 -> 2
+                _ -> 3
+            }
+        }
+        Error(_) -> 0
+    }
+}
+
+// Test pattern matching with ternary
+hybrid_logic(result: Result): Int = {
+    base = case result {
+        Ok(value) -> value
+        Error(_) -> 0
+    }
+    
+    base > 10 ? base * 2 : base
+}
+
+// Main function to test pattern matching
+main(): Int = {
+    // Create test values
+    success = Ok(value: 15)
+    failure = Error(message: "test error")
+    circle = Circle(radius: 5.0)
+    rectangle = Rectangle(width: 10.0, height: 8.0)
+    
+    // Test basic pattern matching
+    result1 = process_result(success)    // 15
+    result2 = process_result(failure)    // 0
+    
+    // Test shape pattern matching
+    shape1 = get_shape_info(circle)      // 1
+    shape2 = get_shape_info(rectangle)   // 2
+    
+    // Test when expressions
+    grade1 = grade_score(85)             // "B"
+    grade2 = grade_score(95)             // "A"
+    
+    // Test number classification
+    class1 = classify_number(1)          // "one"
+    class2 = classify_number(5)          // "other"
+    
+    // Test value extraction
+    extract1 = extract_value(success)    // 30 (15 * 2)
+    extract2 = extract_value(failure)    // -1
+    
+    // Test range checking
+    range1 = check_range(-5)             // "negative"
+    range2 = check_range(10)             // "positive"
+    
+    // Test nested patterns
+    nested_result = process_nested(success)  // 2 (15 is >= 10, < 20)
+    
+    // Test hybrid logic
+    hybrid_result = hybrid_logic(success)    // 30 (15 * 2)
+    
+    // Return sum to verify all tests ran
+    result1 + result2 + shape1 + shape2 + extract1 + extract2 + nested_result + hybrid_result
+}
+
+// Test pattern matching with different data types
+test_various_patterns(): Int = {
+    // Test with boolean patterns
+    bool_result = case true {
+        true -> 1
+        false -> 0
+    }
+    
+    // Test with string patterns (if supported)
+    string_result = case "test" {
+        "test" -> 10
+        "other" -> 5
+        _ -> 0
+    }
+    
+    // Test with number ranges in when
+    range_result = when 25 {
+        < 10 -> 1
+        < 30 -> 2
+        < 50 -> 3
+        _ -> 4
+    }
+    
+    bool_result + string_result + range_result
+}
+
+// Test wildcard patterns
+test_wildcards(): Int = {
+    test_value = Ok(value: 42)
+    
+    result = case test_value {
+        Ok(_) -> 100    // Match any Ok value
+        _ -> 0          // Match anything else
+    }
+    
+    result
+}
+
+// Test guards in pattern matching
+test_pattern_guards(): Int = {
+    value = 15
+    
+    result = case value {
+        x -> {
+            when x {
+                > 20 -> 3
+                > 10 -> 2
+                > 0 -> 1
+                _ -> 0
+            }
+        }
+    }
+    
+    result  // Should be 2
+}
+
+// Test case expression with complex expressions
+test_complex_case(): Int = {
+    input = 7
+    
+    result = case input + 3 {
+        10 -> 100
+        15 -> 200
+        _ -> 50
+    }
+    
+    result  // Should be 100 (7 + 3 = 10)
+}
+
+// Test when expression with complex conditions
+test_complex_when(): Int = {
+    score = 88
+    
+    result = when score {
+        >= 90 -> 4
+        >= 80 -> 3
+        >= 70 -> 2
+        >= 60 -> 1
+        _ -> 0
+    }
+    
+    result  // Should be 3
+}

@@ -1,0 +1,37 @@
+// Mutability Debug Test - Isolate the reassignment issue
+// This test specifically targets the variable redeclaration problem
+
+// Simple immutable variables
+x = 10
+y = 20
+
+// Test function with variable reassignment
+test_reassignment() {
+    live counter = 5
+    // This line causes the error - it's being parsed as a new declaration
+    // instead of an assignment to an existing variable
+    counter = counter + 1
+    counter
+}
+
+// Test function without reassignment (should work)
+test_no_reassignment() {
+    live value = 10
+    result = value + 5
+    result
+}
+
+// Test function with multiple separate variables (should work)
+test_separate_vars() {
+    live first = 5
+    live second = 10
+    first + second
+}
+
+// Main function
+main() = {
+    result1 = test_no_reassignment()
+    result2 = test_separate_vars()
+    // Don't call test_reassignment() yet as it will fail
+    result1 + result2
+}

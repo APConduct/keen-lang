@@ -1,0 +1,170 @@
+// Simplified Chaining Test - Working Version
+// Tests basic chaining features that are currently supported
+
+// Helper functions for testing
+double(x) = x * 2
+add_ten(x) = x + 10
+square(x) = x * x
+increment(x) = x + 1
+
+// Simple data types for chaining
+type Calculator = Calculator(value: Int)
+type Point = Point(x: Float, y: Float)
+
+// Basic calculator methods
+add_value(calc: Calculator, n: Int): Calculator = Calculator(value: calc.value + n)
+multiply_value(calc: Calculator, n: Int): Calculator = Calculator(value: calc.value * n)
+get_result(calc: Calculator): Int = calc.value
+
+// Test basic pipeline operations
+test_basic_pipeline(): Int = {
+    result = 5
+        |> double
+        |> add_ten
+        |> square
+    
+    result  // Should be ((5 * 2 + 10) ^ 2) = 400
+}
+
+// Test simple field access chaining
+test_field_access(): Float = {
+    point = Point(x: 5.0, y: 10.0)
+    
+    // Simple field access (no deep chaining yet)
+    x_coord = point.x
+    y_coord = point.y
+    
+    x_coord + y_coord  // 15.0
+}
+
+// Test pipeline with lambda
+test_lambda_pipeline(): Int = {
+    result = 7
+        |> |x| x * 2
+        |> |x| x + 3
+        |> |x| x - 1
+    
+    result  // ((7 * 2) + 3) - 1 = 16
+}
+
+// Test basic function chaining through pipelines
+test_function_pipeline(): Int = {
+    result = 3
+        |> double      // 6
+        |> add_ten     // 16
+        |> increment   // 17
+    
+    result
+}
+
+// Test simple constructor chaining
+test_constructor_chaining(): Int = {
+    calc = Calculator(value: 10)
+    
+    // Manual chaining for now (method chaining syntax not fully supported)
+    step1 = add_value(calc, 5)          // Calculator(15)
+    step2 = multiply_value(step1, 2)    // Calculator(30)
+    final_result = get_result(step2)    // 30
+    
+    final_result
+}
+
+// Test mixed pipeline operations
+test_mixed_operations(): Int = {
+    // Start with a value and chain operations
+    result1 = 4 |> square |> add_ten     // 26
+    result2 = 3 |> increment |> double   // 8
+    
+    result1 + result2  // 34
+}
+
+// Test pipeline with ternary
+test_conditional_pipeline(): Int = {
+    value = 15
+    
+    result = value
+        |> |x| x > 10 ? x * 2 : x
+        |> |x| x + 5
+    
+    result  // (15 * 2) + 5 = 35
+}
+
+// Test string operations (simplified)
+test_string_pipeline(): String = {
+    text = "hello"
+    
+    // Simple string pipeline (assuming basic string functions exist)
+    result = text
+        |> |s| s + " world"
+        |> |s| s + "!"
+    
+    result  // "hello world!"
+}
+
+// Test nested pipeline operations
+test_nested_pipelines(): Int = {
+    inner_result = 5 |> double |> increment  // 11
+    outer_result = inner_result |> square    // 121
+    
+    outer_result
+}
+
+// Main function to test all chaining features
+main(): Int = {
+    // Test all chaining operations
+    pipeline_result = test_basic_pipeline()        // 400
+    field_result = test_field_access()             // 15.0 -> 15
+    lambda_result = test_lambda_pipeline()         // 16
+    function_result = test_function_pipeline()     // 17
+    constructor_result = test_constructor_chaining() // 30
+    mixed_result = test_mixed_operations()         // 34
+    conditional_result = test_conditional_pipeline() // 35
+    nested_result = test_nested_pipelines()       // 121
+    
+    // String test would need string-to-int conversion
+    string_length = 12  // Simulated length of "hello world!"
+    
+    // Combine all results
+    total = pipeline_result + field_result + lambda_result + 
+            function_result + constructor_result + mixed_result + 
+            conditional_result + nested_result + string_length
+    
+    total  // Should be a meaningful sum
+}
+
+// Test error handling with pipelines (simplified)
+test_safe_operations(): Int = {
+    // Simple validation pipeline
+    value = 10
+    
+    result = value
+        |> |x| x > 0 ? x : 0
+        |> |x| x < 100 ? x : 100
+        |> double
+    
+    result  // 20
+}
+
+// Test composition patterns
+test_composition(): Int = {
+    // Create a composed operation
+    process = |x| x |> double |> add_ten |> square
+    
+    result1 = process(2)  // ((2 * 2) + 10)^2 = 196
+    result2 = process(3)  // ((3 * 2) + 10)^2 = 256
+    
+    result1 + result2  // 452
+}
+
+// Test data transformation pipeline
+test_data_transformation(): Int = {
+    // Simulate data processing
+    raw_data = 42
+    
+    processed = raw_data
+        |> |x| x / 2    // 21
+        |> |x| x + 9    // 30
+        |> |x| x * 3    // 90
+    
+    processed
+}

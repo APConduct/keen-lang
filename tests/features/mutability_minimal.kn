@@ -1,0 +1,22 @@
+// Minimal Mutability Test - Debug Version
+// Very simple test to isolate the variable declaration issue
+
+// Simple immutable variables
+x = 10
+y = 20
+
+// Simple function without live variables
+add_simple(a, b) = a + b
+
+// Test function with only one live variable
+test_single_live() {
+    live counter = 5
+    counter + 1
+}
+
+// Main function
+main() = {
+    result = add_simple(x, y)
+    live_result = test_single_live()
+    result + live_result
+}

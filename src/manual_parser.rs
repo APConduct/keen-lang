@@ -635,7 +635,7 @@ impl ManualParser {
     }
 
     fn parse_statement(&mut self) -> Result<Statement, ParseError> {
-        // Check if this is an assignment statement
+        // Check if this is an assignment statement (without mutability keywords)
         if let Some(Token::Identifier(var_name)) = self.current_token() {
             if let Some(Token::Assign) = self.peek_token() {
                 // Parse assignment statement: identifier = expression
@@ -645,12 +645,8 @@ impl ManualParser {
 
                 let value = self.parse_expression()?;
 
-                return Ok(Statement::VariableDecl(VariableDecl {
-                    name,
-                    mutability: Mutability::Immutable,
-                    type_annotation: None,
-                    value,
-                }));
+                // This is an assignment to an existing variable
+                return Ok(Statement::Assignment { name, value });
             }
         }
 

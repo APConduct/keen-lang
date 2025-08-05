@@ -1,0 +1,112 @@
+// Simplified Mutability Test - Working Version
+// Tests basic mutability features without variable reassignment
+
+// Immutable by default
+count = 0
+name = "Alice"
+user_id = 12345
+
+// Explicit mutability with 'live'
+live counter = 0
+live total = 100
+
+// Simple mutability test function - no reassignment
+test_mutability() {
+    live local_var = 5
+    result = local_var + 1
+    result
+}
+
+// Function with live parameter
+increment_value(live value: Int): Int {
+    new_value = value + 1
+    new_value
+}
+
+// Function with keep parameter (constant)
+calculate_with_constant(keep multiplier: Int, input: Int): Int {
+    input * multiplier
+}
+
+// Test live variables without reassignment
+process_data() {
+    live acc = 0
+    live count = 0
+    
+    // Use variables without reassigning them
+    result = acc + count + 10
+    final_count = count + 1
+    
+    result + final_count
+}
+
+// Keep constants
+keep MAX_USERS = 1000
+keep PI = 3.14159
+keep SYSTEM_NAME = "Keen"
+
+// Main function to test mutability
+main(): Int = {
+    // Test basic mutability
+    mut_result = test_mutability()
+    
+    // Test function with live parameter
+    test_value = 10
+    inc_result = increment_value(test_value)
+    
+    // Test keep parameter
+    calc_result = calculate_with_constant(5, 8)
+    
+    // Test processing function
+    proc_result = process_data()
+    
+    // Return combined result
+    mut_result + inc_result + calc_result + proc_result
+}
+
+// Test variable shadowing (allowed for regular variables)
+test_shadowing(): Int = {
+    x = 5
+    y = x + 5  // Use x in calculation
+    z = y + 10 // Chain calculations instead of reassignment
+    z
+}
+
+// Test that mutability works in expressions
+test_expressions(): Int = {
+    live accumulator = 0
+    
+    // Use accumulator in calculations without reassigning
+    step1 = accumulator + 5
+    step2 = step1 * 2
+    final_result = step2 > 0 ? step2 : 1
+    
+    final_result
+}
+
+// Test live variables in ternary expressions
+test_live_ternary(): Int = {
+    live base = 10
+    result = base > 5 ? base * 2 : base
+    result
+}
+
+// Test keep variables in calculations
+test_keep_usage(): Int = {
+    result = MAX_USERS / 10
+    adjusted = result + count
+    adjusted
+}
+
+// Test multiple live variables without reassignment
+test_multiple_live(): Int = {
+    live first = 5
+    live second = 10
+    live third = 15
+    
+    // Use all variables in calculation
+    sum = first + second + third
+    product = first * second
+    
+    sum + product
+}

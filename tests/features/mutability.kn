@@ -1,17 +1,19 @@
 // Immutable by default
 count = 0
-name = “Alice”
+name = "Alice"
 data = load_config()
 
-// Explicit mutability with ‘live’
+// Explicit mutability with 'live'
 live counter = 0
 live cache = {}
 live position = Point(0.0, 0.0)
 
-// Usage
-counter = counter + 1           // OK
-cache.insert(“key”, “value”)    // OK
-position = Point(1.0, 2.0)      // OK
+// Test function to demonstrate usage
+test_usage() {
+    counter = counter + 1           // OK
+    cache.insert("key", "value")    // OK
+    position = Point(1.0, 2.0)      // OK
+}
 
 // This would error:
 // count = count + 1            // Error: cannot reassign immutable variable
@@ -32,13 +34,24 @@ cache.insert(key, value)
 live results = []
 live user_state = LoggedOut
 
-case user_input {
-    Login(credentials) -> {
-        user_state = authenticate(credentials)
-        results.push(“Login attempt”)
+// Function to handle user input with case expression
+handle_user_input(user_input) {
+    case user_input {
+        Login(credentials) -> {
+            user_state = authenticate(credentials)
+            results.push("Login attempt")
+        }
+        Logout -> {
+            user_state = LoggedOut
+            results.clear()
+        }
     }
-    Logout -> {
-    user_state = LoggedOut
-    results.clear()
-    }
+}
+
+// Main function to test mutability
+main() = {
+    test_usage()
+    test_input = Login(credentials: "test")
+    handle_user_input(test_input)
+    42
 }

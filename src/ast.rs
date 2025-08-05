@@ -96,6 +96,7 @@ pub struct UnionVariant {
 pub enum Statement {
     Expression(Expression),
     VariableDecl(VariableDecl),
+    Assignment { name: String, value: Expression },
     DestructuringDecl { pattern: Pattern, value: Expression },
 }
 
