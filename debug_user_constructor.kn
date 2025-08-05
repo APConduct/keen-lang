@@ -1,0 +1,21 @@
+// Minimal test to debug User constructor type issue
+
+// Simple product type
+type User = User(id: Int, name: String)
+
+// Function that creates a User and returns it
+create_user(): User = {
+    User(id: 1, name: "Alice")
+}
+
+// Function that takes User parameter and returns User
+update_user(user: User): User = {
+    User(id: user.id, name: "Updated")
+}
+
+// Main function
+main(): Int = {
+    user = create_user()
+    updated = update_user(user)
+    42
+}

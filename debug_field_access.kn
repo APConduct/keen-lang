@@ -1,0 +1,19 @@
+// Test that mimics the problematic function exactly to debug the field access issue
+
+// Product type definition (same as new_features.kn)
+type User = User(id: Int, name: String, email: String, age: Int)
+
+// Create a user instance
+alice: User = User(id: 1, name: "Alice", email: "alice@test.com", age: 25)
+
+// This is the exact problematic function from new_features.kn
+update_user_name(live user: User, new_name: String): User {
+    User(id: user.id, name: new_name, email: user.email, age: user.age)
+}
+
+// Main function to test
+main(): Int {
+    // Test the problematic function
+    updated = update_user_name(alice, "Bob")
+    42
+}

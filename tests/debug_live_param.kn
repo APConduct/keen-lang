@@ -1,0 +1,47 @@
+// Test live parameter specifically to isolate the verifier error
+// This tests if the 'live' parameter annotation is causing the issue
+
+// Simple product type
+type User = User(id: Int, name: String)
+
+// Test 1: Function without live parameter (should work)
+update_user_normal(user: User, new_name: String): User = {
+    User(id: 1, name: new_name)  // Use hardcoded values to avoid field access issues
+}
+
+// Test 2: Function with live parameter but no field access
+update_user_live_simple(live user: User, new_name: String): User = {
+    User(id: 1, name: new_name)  // Use hardcoded values
+}
+
+// Test 3: Function with live parameter AND field access (most likely to fail)
+update_user_live_with_field(live user: User, new_name: String): User = {
+    User(id: user.id, name: new_name)
+}
+
+// Test 4: Function with live parameter that modifies it
+modify_user_live(live user: User): User = {
+    user = User(id: 2, name: "Modified")
+    user
+}
+
+// Test data
+alice: User = User(id: 1, name: "Alice")
+
+// Main function to test each case
+main(): Int = {
+    // Test 1: Normal parameter
+    user1 = update_user_normal(alice, "Bob")
+
+    // Test 2: Live parameter without field access
+    user2 = update_user_live_simple(alice, "Charlie")
+
+    // Test 3: Live parameter with field access (might fail here)
+    user3 = update_user_live_with_field(alice, "David")
+
+    // Test 4: Live parameter with modification
+    user4 = modify_user_live(alice)
+
+    // Return success
+    42
+}

@@ -1,4 +1,5 @@
-// Test new features: product types, union types, constructors
+// Test with pattern matching to isolate the verifier error
+// This adds pattern matching back to see if that's the issue
 
 // Product type definition
 type User = User(id: Int, name: String, email: String, age: Int)
@@ -16,9 +17,9 @@ user1 = User(id: 1, name: "Alice", email: "alice@test.com", age: 25)
 success = Ok(value: "Operation completed")
 failure = Error(message: "Something went wrong")
 
-// Function with mutability on parameters
-update_user_name(live user: User, new_name: String): User {
-    User(id: user.id, name: new_name, email: user.email, age: user.age)
+// Function WITHOUT field access (this should work)
+update_user_simple(live user: User, new_name: String): User {
+    User(id: 1, name: new_name, email: "test@example.com", age: 30)
 }
 
 // Pattern matching with product types
@@ -36,7 +37,7 @@ process_result(result: Result) {
 }
 
 // Pattern matching with shapes
-calculate_area(shape: Shape): Float {
+calculate_area(shape: Shape) {
     case shape {
         Circle(radius) -> 3.14159 * radius * radius
         Rectangle(width, height) -> width * height
@@ -49,7 +50,7 @@ live counter: Int = 0
 // Keep constant
 keep MAX_USERS = 1000
 
-// Test the features
+// Test the features with pattern matching but NO field access in constructors
 main() {
     // Constructor usage
     alice = User(id: 1, name: "Alice", email: "alice@example.com", age: 30)
@@ -58,15 +59,16 @@ main() {
     result = Ok(value: "Hello World")
     message = process_result(result)
 
-    // Shape calculation
+    // Shape calculation with float literal
     circle = Circle(radius: 5.0)
     area = calculate_area(circle)
+
+    // Simple user update (no field access)
+    updated_user = update_user_simple(alice, "Bob")
 
     // Mutability test
     counter = counter + 1
 
-    print("User: " + alice.name)
-    print("Message: " + message)
-    print("Area: " + area)
-    print("Counter: " + counter)
+    // Return simple result
+    counter
 }

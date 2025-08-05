@@ -1,4 +1,5 @@
-// Test new features: product types, union types, constructors
+// Test pattern matching without float literals to isolate verifier error
+// This removes float literals to see if that's causing the issue
 
 // Product type definition
 type User = User(id: Int, name: String, email: String, age: Int)
@@ -6,8 +7,8 @@ type User = User(id: Int, name: String, email: String, age: Int)
 // Union type definition
 type Result = Ok(value: String) | Error(message: String)
 
-// Another union type
-type Shape = Circle(radius: Float) | Rectangle(width: Float, height: Float)
+// Another union type (using Int instead of Float)
+type Shape = Circle(radius: Int) | Rectangle(width: Int, height: Int)
 
 // Create user with constructor
 user1 = User(id: 1, name: "Alice", email: "alice@test.com", age: 25)
@@ -16,9 +17,9 @@ user1 = User(id: 1, name: "Alice", email: "alice@test.com", age: 25)
 success = Ok(value: "Operation completed")
 failure = Error(message: "Something went wrong")
 
-// Function with mutability on parameters
-update_user_name(live user: User, new_name: String): User {
-    User(id: user.id, name: new_name, email: user.email, age: user.age)
+// Function WITHOUT field access (this should work)
+update_user_simple(live user: User, new_name: String): User {
+    User(id: 1, name: new_name, email: "test@example.com", age: 30)
 }
 
 // Pattern matching with product types
@@ -35,10 +36,10 @@ process_result(result: Result) {
     }
 }
 
-// Pattern matching with shapes
-calculate_area(shape: Shape): Float {
+// Pattern matching with shapes (using Int instead of Float)
+calculate_area(shape: Shape) {
     case shape {
-        Circle(radius) -> 3.14159 * radius * radius
+        Circle(radius) -> radius * radius * 3  // Simplified calculation with integers
         Rectangle(width, height) -> width * height
     }
 }
@@ -49,7 +50,7 @@ live counter: Int = 0
 // Keep constant
 keep MAX_USERS = 1000
 
-// Test the features
+// Test the features with pattern matching but NO float literals
 main() {
     // Constructor usage
     alice = User(id: 1, name: "Alice", email: "alice@example.com", age: 30)
@@ -58,15 +59,16 @@ main() {
     result = Ok(value: "Hello World")
     message = process_result(result)
 
-    // Shape calculation
-    circle = Circle(radius: 5.0)
+    // Shape calculation with integer literal (no floats)
+    circle = Circle(radius: 5)
     area = calculate_area(circle)
+
+    // Simple user update (no field access)
+    updated_user = update_user_simple(alice, "Bob")
 
     // Mutability test
     counter = counter + 1
 
-    print("User: " + alice.name)
-    print("Message: " + message)
-    print("Area: " + area)
-    print("Counter: " + counter)
+    // Return simple result
+    counter
 }

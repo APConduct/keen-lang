@@ -1,27 +1,28 @@
-// Test new features: product types, union types, constructors
+// Debug test that matches new_features.kn structure exactly
+// This will help isolate the exact cause of the verifier error
 
-// Product type definition
+// Product type definition (same as new_features.kn)
 type User = User(id: Int, name: String, email: String, age: Int)
 
-// Union type definition
+// Union type definition (same as new_features.kn)
 type Result = Ok(value: String) | Error(message: String)
 
-// Another union type
+// Another union type (same as new_features.kn)
 type Shape = Circle(radius: Float) | Rectangle(width: Float, height: Float)
 
-// Create user with constructor
+// Create user with constructor (same as new_features.kn)
 user1 = User(id: 1, name: "Alice", email: "alice@test.com", age: 25)
 
-// Create result values
+// Create result values (same as new_features.kn)
 success = Ok(value: "Operation completed")
 failure = Error(message: "Something went wrong")
 
-// Function with mutability on parameters
+// Function with mutability on parameters (same as new_features.kn)
 update_user_name(live user: User, new_name: String): User {
     User(id: user.id, name: new_name, email: user.email, age: user.age)
 }
 
-// Pattern matching with product types
+// Pattern matching with product types (same as new_features.kn)
 process_result(result: Result) {
     case result {
         Ok(value) -> {
@@ -35,21 +36,21 @@ process_result(result: Result) {
     }
 }
 
-// Pattern matching with shapes
-calculate_area(shape: Shape): Float {
+// Pattern matching with shapes (same as new_features.kn)
+calculate_area(shape: Shape) {
     case shape {
         Circle(radius) -> 3.14159 * radius * radius
         Rectangle(width, height) -> width * height
     }
 }
 
-// Variable with type annotation
+// Variable with type annotation (same as new_features.kn)
 live counter: Int = 0
 
-// Keep constant
+// Keep constant (same as new_features.kn)
 keep MAX_USERS = 1000
 
-// Test the features
+// Test the features (same as new_features.kn)
 main() {
     // Constructor usage
     alice = User(id: 1, name: "Alice", email: "alice@example.com", age: 30)

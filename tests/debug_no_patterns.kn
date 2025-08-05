@@ -1,0 +1,55 @@
+// Minimal test without pattern matching to isolate the verifier error
+// This removes pattern matching to see if that's causing the issue
+
+// Product type definition
+type User = User(id: Int, name: String, email: String, age: Int)
+
+// Union type definition
+type Result = Ok(value: String) | Error(message: String)
+
+// Create user with constructor
+user1 = User(id: 1, name: "Alice", email: "alice@test.com", age: 25)
+
+// Create result values
+success = Ok(value: "Operation completed")
+failure = Error(message: "Something went wrong")
+
+// Function with mutability on parameters (NO field access)
+update_user_simple(live user: User, new_name: String): User {
+    User(id: 1, name: new_name, email: "test@example.com", age: 30)
+}
+
+// Simple function that returns Result (NO pattern matching)
+create_success(): Result {
+    Ok(value: "Hello World")
+}
+
+// Simple function that takes Result (NO pattern matching)
+check_result(result: Result): Int {
+    42  // Just return a constant
+}
+
+// Variable with type annotation
+live counter: Int = 0
+
+// Keep constant
+keep MAX_USERS = 1000
+
+// Test the features (NO pattern matching, NO field access)
+main() {
+    // Constructor usage
+    alice = User(id: 1, name: "Alice", email: "alice@example.com", age: 30)
+
+    // Union type usage
+    result = Ok(value: "Hello World")
+    status = check_result(result)
+
+    // Simple user update
+    updated_user = update_user_simple(alice, "Bob")
+
+    // Mutability test
+    counter = counter + 1
+
+    // Return simple result
+    counter + status
+}

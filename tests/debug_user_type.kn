@@ -1,0 +1,46 @@
+// Minimal test to isolate User type compilation issue
+// This tests the specific pattern that's causing the verifier error
+
+// Simple product type
+type User = User(id: Int, name: String)
+
+// Test 1: Simple User creation (this should work)
+create_simple_user(): User = {
+    User(id: 1, name: "Alice")
+}
+
+// Test 2: Function that takes User parameter but doesn't use field access
+take_user_simple(user: User): Int = {
+    42  // Just return a constant, don't access fields
+}
+
+// Test 3: Function with field access (this might cause the verifier error)
+get_user_id(user: User): Int = {
+    user.id
+}
+
+// Test 4: Function that creates User with field access (most likely to fail)
+update_user_simple(user: User, new_name: String): User = {
+    User(id: user.id, name: new_name)
+}
+
+// Test 5: Variable declaration with User type
+alice: User = User(id: 1, name: "Alice")
+
+// Main function - test each case progressively
+main(): Int = {
+    // Test 1: Simple creation
+    user1 = create_simple_user()
+
+    // Test 2: Simple parameter passing
+    result1 = take_user_simple(user1)
+
+    // Test 3: Field access (might fail here)
+    id_val = get_user_id(alice)
+
+    // Test 4: Update with field access (most likely to fail here)
+    user2 = update_user_simple(alice, "Bob")
+
+    // Return success
+    result1 + id_val
+}
