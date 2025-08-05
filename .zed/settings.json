@@ -1,0 +1,11 @@
+{
+  "languages": {
+    "TypeScript": {
+      "enable_language_server": false,
+      "format_on_save": "off"
+    }
+  },
+  "file_types": {
+    "TypeScript": ["ts", "tsx", "kn"]
+  }
+}
