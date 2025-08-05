@@ -1,0 +1,32 @@
+// Minimal User-Defined Types Test
+// Testing basic functionality that should work
+
+// Simple product type
+type User = User(id: Int, name: String, age: Int)
+
+// Simple union type
+type Result = Ok(value: String) | Error(message: String)
+
+// Create instances
+alice: User = User(id: 1, name: "Alice", age: 25)
+success: Result = Ok(value: "test")
+
+// Simple function
+create_user(id: Int, name: String, age: Int): User = {
+    User(id: id, name: name, age: age)
+}
+
+// Pattern matching
+process_result(result: Result): Int = {
+    case result {
+        Ok(value) -> 1
+        Error(message) -> 0
+    }
+}
+
+// Main function
+main(): Int = {
+    bob = create_user(2, "Bob", 30)
+    result = process_result(success)
+    result
+}

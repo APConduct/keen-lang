@@ -1235,7 +1235,9 @@ impl ManualParser {
 
     pub fn parse_item(&mut self) -> Result<Item, ParseError> {
         // Try to parse different types of items
-        if let Some(Token::Identifier(_)) = self.current_token() {
+        if let Some(Token::Type) = self.current_token() {
+            self.parse_type_definition()
+        } else if let Some(Token::Identifier(_)) = self.current_token() {
             // Could be function or variable
             if let Some(Token::LeftParen) = self.peek_token() {
                 self.parse_function()
@@ -1246,10 +1248,195 @@ impl ManualParser {
             self.parse_variable()
         } else {
             Err(ParseError {
-                message: "Expected function or variable declaration".to_string(),
+                message: "Expected function, variable, or type declaration".to_string(),
                 position: self.position,
             })
         }
+    }
+
+    pub fn parse_type_definition(&mut self) -> Result<Item, ParseError> {
+        // Expect 'type'
+        self.expect_token(&Token::Type, "Expected 'type'")?;
+
+        // Parse type name
+        let type_name = match self.current_token() {
+            Some(Token::Identifier(name)) => {
+                let name = name.clone();
+                self.advance();
+                name
+            }
+            _ => {
+                return Err(ParseError {
+                    message: "Expected type name after 'type'".to_string(),
+                    position: self.position,
+                })
+            }
+        };
+
+        // Expect '='
+        self.expect_token(&Token::Assign, "Expected '=' after type name")?;
+
+        // Parse the type definition - this could be a union type or product type
+        let type_def = if self.check_type_is_union() {
+            self.parse_union_type(type_name)?
+        } else {
+            self.parse_product_type(type_name)?
+        };
+
+        Ok(Item::TypeDef(type_def))
+    }
+
+    fn check_type_is_union(&self) -> bool {
+        // Look ahead to see if this contains a '|' which indicates a union type
+        let mut pos = self.position;
+        let mut depth = 0;
+
+        while pos < self.tokens.len() {
+            match &self.tokens[pos] {
+                Token::LeftParen => depth += 1,
+                Token::RightParen => depth -= 1,
+                Token::Pipe if depth == 0 => return true,
+                Token::Identifier(_) if pos > self.position => {
+                    // If we see another identifier at the same level, check if next is |
+                    if pos + 1 < self.tokens.len() {
+                        if let Token::Pipe = &self.tokens[pos + 1] {
+                            return true;
+                        }
+                    }
+                }
+                _ => {}
+            }
+            pos += 1;
+        }
+        false
+    }
+
+    fn parse_union_type(&mut self, name: String) -> Result<TypeDef, ParseError> {
+        let mut variants = Vec::new();
+
+        // Parse first variant
+        variants.push(self.parse_union_variant()?);
+
+        // Parse remaining variants separated by '|'
+        while self.check_token(&Token::Pipe) {
+            self.advance(); // consume '|'
+            variants.push(self.parse_union_variant()?);
+        }
+
+        Ok(TypeDef::Union { name, variants })
+    }
+
+    fn parse_union_variant(&mut self) -> Result<UnionVariant, ParseError> {
+        // Parse variant name
+        let variant_name = match self.current_token() {
+            Some(Token::Identifier(name)) => {
+                let name = name.clone();
+                self.advance();
+                name
+            }
+            _ => {
+                return Err(ParseError {
+                    message: "Expected variant name".to_string(),
+                    position: self.position,
+                })
+            }
+        };
+
+        // Parse optional fields
+        let fields = if self.check_token(&Token::LeftParen) {
+            self.advance(); // consume '('
+            let mut fields = Vec::new();
+
+            while !self.check_token(&Token::RightParen) && !self.is_at_end() {
+                fields.push(self.parse_product_field()?);
+
+                if self.check_token(&Token::Comma) {
+                    self.advance();
+                } else if !self.check_token(&Token::RightParen) {
+                    return Err(ParseError {
+                        message: "Expected ',' or ')' in variant fields".to_string(),
+                        position: self.position,
+                    });
+                }
+            }
+
+            self.expect_token(&Token::RightParen, "Expected ')' after variant fields")?;
+            fields
+        } else {
+            Vec::new()
+        };
+
+        Ok(UnionVariant {
+            name: variant_name,
+            fields,
+        })
+    }
+
+    fn parse_product_type(&mut self, name: String) -> Result<TypeDef, ParseError> {
+        // Parse constructor name (should be same as type name for product types)
+        let constructor_name = match self.current_token() {
+            Some(Token::Identifier(constructor)) => {
+                let constructor = constructor.clone();
+                self.advance();
+                constructor
+            }
+            _ => {
+                return Err(ParseError {
+                    message: "Expected constructor name".to_string(),
+                    position: self.position,
+                })
+            }
+        };
+
+        // Expect '('
+        self.expect_token(&Token::LeftParen, "Expected '(' after constructor name")?;
+
+        // Parse fields
+        let mut fields = Vec::new();
+        while !self.check_token(&Token::RightParen) && !self.is_at_end() {
+            fields.push(self.parse_product_field()?);
+
+            if self.check_token(&Token::Comma) {
+                self.advance();
+            } else if !self.check_token(&Token::RightParen) {
+                return Err(ParseError {
+                    message: "Expected ',' or ')' in product type fields".to_string(),
+                    position: self.position,
+                });
+            }
+        }
+
+        self.expect_token(&Token::RightParen, "Expected ')' after product type fields")?;
+
+        Ok(TypeDef::Product { name, fields })
+    }
+
+    fn parse_product_field(&mut self) -> Result<ProductField, ParseError> {
+        // Parse field name
+        let field_name = match self.current_token() {
+            Some(Token::Identifier(name)) => {
+                let name = name.clone();
+                self.advance();
+                name
+            }
+            _ => {
+                return Err(ParseError {
+                    message: "Expected field name".to_string(),
+                    position: self.position,
+                })
+            }
+        };
+
+        // Expect ':'
+        self.expect_token(&Token::Colon, "Expected ':' after field name")?;
+
+        // Parse field type
+        let field_type = self.parse_type()?;
+
+        Ok(ProductField {
+            name: field_name,
+            field_type,
+        })
     }
 
     pub fn parse_function(&mut self) -> Result<Item, ParseError> {
@@ -1283,6 +1470,19 @@ impl ManualParser {
         let mut params = Vec::new();
 
         while !self.check_token(&Token::RightParen) && !self.is_at_end() {
+            // Check for optional mutability keyword
+            let mutability = match self.current_token() {
+                Some(Token::Live) => {
+                    self.advance();
+                    Some(Mutability::Live)
+                }
+                Some(Token::Keep) => {
+                    self.advance();
+                    Some(Mutability::Keep)
+                }
+                _ => None,
+            };
+
             if let Some(Token::Identifier(param_name)) = self.current_token() {
                 eprintln!("DEBUG: Found parameter: {}", param_name);
                 let param_name = param_name.clone();
@@ -1299,7 +1499,7 @@ impl ManualParser {
                 params.push(Parameter {
                     name: param_name,
                     type_annotation,
-                    mutability: None,
+                    mutability,
                 });
 
                 if self.check_token(&Token::Comma) {

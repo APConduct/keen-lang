@@ -1,0 +1,61 @@
+// Simple User-Defined Types Test - Minimal test without field access
+// This tests only the basic type definitions and constructors
+
+// Product type definition
+type User = User(id: Int, name: String, age: Int)
+
+// Union type definition
+type Result = Ok(value: String) | Error(message: String)
+
+// Another union type
+type Shape = Circle(radius: Float) | Rectangle(width: Float, height: Float)
+
+// Simple function with user-defined type parameter
+create_user(id: Int, name: String, age: Int): User {
+    User(id: id, name: name, age: age)
+}
+
+// Function with union type return
+test_result(): Result {
+    Ok(value: "success")
+}
+
+// Pattern matching with user-defined types
+process_result(result: Result): Int {
+    case result {
+        Ok(value) -> 1
+        Error(message) -> 0
+    }
+}
+
+// Pattern matching with product types
+get_shape_type(shape: Shape): Int {
+    case shape {
+        Circle(radius) -> 1
+        Rectangle(width, height) -> 2
+    }
+}
+
+// Variable declarations with user-defined types
+alice: User = User(id: 1, name: "Alice", age: 25)
+success: Result = Ok(value: "test")
+error: Result = Error(message: "failed")
+circle: Shape = Circle(radius: 5.0)
+
+// Main function
+main(): Int {
+    // Test constructor creation
+    bob = create_user(2, "Bob", 30)
+
+    // Test pattern matching
+    result1 = process_result(success)
+    result2 = process_result(error)
+    shape_type = get_shape_type(circle)
+
+    // Test function calls with user types
+    test_res = test_result()
+    final_result = process_result(test_res)
+
+    // Return sum to verify all operations worked
+    result1 + result2 + shape_type + final_result
+}

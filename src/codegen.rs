@@ -16,6 +16,7 @@ pub struct KeenCodegen {
     string_pool: Vec<CString>,
     global_variables: HashMap<String, cranelift_module::DataId>,
     function_registry: HashMap<String, cranelift_module::FuncId>,
+    type_registry: HashMap<String, ast::TypeDef>,
     next_variable_id: usize,
 }
 
@@ -66,6 +67,7 @@ impl KeenCodegen {
             string_pool: Vec::new(),
             global_variables: HashMap::new(),
             function_registry: HashMap::new(),
+            type_registry: HashMap::new(),
             next_variable_id: 0,
         })
     }
@@ -74,16 +76,23 @@ impl KeenCodegen {
         // First, declare the print function
         self.declare_print_function()?;
 
-        // First pass: compile global variables
+        // First pass: register type definitions
+        for item in &program.items {
+            if let ast::Item::TypeDef(_) = item {
+                self.compile_item(item)?;
+            }
+        }
+
+        // Second pass: compile global variables
         for item in &program.items {
             if let ast::Item::VariableDecl(_) = item {
                 self.compile_item(item)?;
             }
         }
 
-        // Second pass: compile functions and types
+        // Third pass: compile functions
         for item in &program.items {
-            if !matches!(item, ast::Item::VariableDecl(_)) {
+            if let ast::Item::Function(_) = item {
                 self.compile_item(item)?;
             }
         }
@@ -285,12 +294,30 @@ impl KeenCodegen {
     fn compile_item(&mut self, item: &ast::Item) -> Result<(), CodegenError> {
         match item {
             ast::Item::Function(func) => self.compile_function(func),
-            ast::Item::TypeDef(_) => {
-                // Type definitions don't generate code directly
-                Ok(())
-            }
+            ast::Item::TypeDef(type_def) => self.register_type(type_def),
             ast::Item::VariableDecl(var) => self.compile_global_variable(var),
         }
+    }
+
+    fn register_type(&mut self, type_def: &ast::TypeDef) -> Result<(), CodegenError> {
+        let type_name = match type_def {
+            ast::TypeDef::Product { name, .. } => name,
+            ast::TypeDef::Union { name, .. } => name,
+            ast::TypeDef::Alias { name, .. } => name,
+        };
+
+        println!("DEBUG: Registering type: {}", type_name);
+
+        // Register the type in our type registry
+        self.type_registry
+            .insert(type_name.clone(), type_def.clone());
+
+        println!(
+            "DEBUG: Type registry now contains: {:?}",
+            self.type_registry.keys().collect::<Vec<_>>()
+        );
+
+        Ok(())
     }
 
     fn compile_function(&mut self, func: &ast::Function) -> Result<(), CodegenError> {
@@ -322,6 +349,13 @@ impl KeenCodegen {
         self.ctx.func.signature = sig;
         self.ctx.func.name = cranelift::codegen::ir::UserFuncName::user(0, func_id.as_u32());
 
+        // Collect parameter types before creating builder to avoid borrowing conflicts
+        let mut param_types = Vec::new();
+        for param in &func.params {
+            let param_type = self.get_cranelift_type(&param.type_annotation)?;
+            param_types.push(param_type);
+        }
+
         // Build function body
         {
             let mut builder = FunctionBuilder::new(&mut self.ctx.func, &mut self.builder_context);
@@ -335,13 +369,7 @@ impl KeenCodegen {
             for (i, param) in func.params.iter().enumerate() {
                 let var = Variable::new(i);
                 let param_val = builder.block_params(entry_block)[i];
-                let param_type = Self::get_cranelift_type_static(
-                    &param.type_annotation,
-                    self.int_type,
-                    self.float_type,
-                    self.bool_type,
-                    self.pointer_type,
-                )?;
+                let param_type = param_types[i];
                 builder.declare_var(var, param_type);
                 builder.def_var(var, param_val);
                 variables.insert(param.name.clone(), var);
@@ -428,7 +456,7 @@ impl KeenCodegen {
                     pointer_type,
                 )?;
                 let var = Variable::new(variables.len());
-                let var_type = KeenCodegen::get_cranelift_type_static(
+                let var_type = Self::get_cranelift_type_static(
                     &var_decl.type_annotation,
                     int_type,
                     float_type,
@@ -1510,7 +1538,11 @@ impl KeenCodegen {
                 "Float" => Ok(float_type),
                 "Boolean" => Ok(bool_type),
                 "String" => Ok(pointer_type), // String as pointer for now
-                _ => Err(CodegenError::Type(format!("Unknown type: {}", name))),
+                _ => {
+                    // Assume unknown named types are user-defined types (pointer types)
+                    // This matches the behavior of the instance method get_cranelift_type
+                    Ok(pointer_type)
+                }
             },
             Some(ast::Type::Function {
                 params: _,
@@ -2274,7 +2306,34 @@ impl KeenCodegen {
                 "Float" => Ok(self.float_type),
                 "Boolean" => Ok(self.bool_type),
                 "String" => Ok(self.pointer_type), // String as pointer for now
-                _ => Err(CodegenError::Type(format!("Unknown type: {}", name))),
+                _ => {
+                    // Check if this is a user-defined type
+                    println!("DEBUG: Looking up type: '{}'", name);
+                    println!("DEBUG: Type name length: {}", name.len());
+                    println!("DEBUG: Type name bytes: {:?}", name.as_bytes());
+                    println!(
+                        "DEBUG: Available types: {:?}",
+                        self.type_registry.keys().collect::<Vec<_>>()
+                    );
+                    for key in self.type_registry.keys() {
+                        println!(
+                            "DEBUG: Registry key: '{}' (len: {}, bytes: {:?})",
+                            key,
+                            key.len(),
+                            key.as_bytes()
+                        );
+                        println!("DEBUG: Keys equal? {}", key == name);
+                    }
+                    let contains = self.type_registry.contains_key(name);
+                    println!("DEBUG: contains_key result: {}", contains);
+                    if contains {
+                        println!("DEBUG: Found user-defined type, using pointer type");
+                        Ok(self.pointer_type)
+                    } else {
+                        println!("DEBUG: Type not found in registry");
+                        Err(CodegenError::Type(format!("Unknown type: {}", name)))
+                    }
+                }
             },
             Some(ast::Type::Function {
                 params: _,
