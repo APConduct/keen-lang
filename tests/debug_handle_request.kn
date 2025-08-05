@@ -1,0 +1,39 @@
+// Extract just the problematic second function for debugging
+
+// Helper functions
+validate_path(p) = p
+serve_file(p) = p
+add_cache_headers(p) = p
+validate() = "validated"
+transform() = "transformed"
+process_post(path, data) = data
+format_response(msg) = msg
+remove_file(p) = p
+log_deletion(msg) = msg
+error_response(msg) = msg
+
+// This is the exact second function from pattern_matching.kn that's failing
+handle_request(request: HttpRequest): HttpResponse {
+    case request {
+        Get(path) -> path
+            |> validate_path
+            |> serve_file
+            |> add_cache_headers
+        Post(path, data) -> data
+            .validate()
+            .transform()
+            |> process_post(path, _)
+            |> format_response("Successfully processed POST to {path}")
+        Delete(path) -> path
+            |> validate_path
+            |> remove_file
+            |> log_deletion("Deleted file at {path}")
+        _ -> error_response("Unknown method: {request.method}")
+    }
+}
+
+// Main function
+main() = {
+    result = handle_request("test")
+    42
+}

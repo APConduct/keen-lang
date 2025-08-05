@@ -979,25 +979,30 @@ impl KeenCodegen {
             pointer_type,
         )?;
 
-        // Create blocks for each arm and the merge block
+        // Create merge block for all arms to converge
         let merge_block = builder.create_block();
         let result_type = int_type; // TODO: Infer actual type
         builder.append_block_param(merge_block, result_type);
 
-        let mut arm_blocks = Vec::new();
-
-        // Create blocks for each arm
-        for _ in arms {
-            arm_blocks.push(builder.create_block());
+        // Handle empty arms case
+        if arms.is_empty() {
+            let default_value = builder.ins().iconst(int_type, 0);
+            builder.ins().jump(merge_block, &[default_value]);
+            builder.switch_to_block(merge_block);
+            builder.seal_block(merge_block);
+            return Ok(builder.block_params(merge_block)[0]);
         }
 
-        // Create a default block for unmatched patterns
-        let default_block = builder.create_block();
-
-        // Generate pattern matching logic
+        // Create a chain of pattern checks
         for (i, arm) in arms.iter().enumerate() {
-            let arm_block = arm_blocks[i];
-            let next_block = arm_blocks.get(i + 1).copied().unwrap_or(default_block);
+            let arm_block = builder.create_block();
+            let next_block = if i == arms.len() - 1 {
+                // Last arm - create default block
+                builder.create_block()
+            } else {
+                // Not last arm - create block for next pattern check
+                builder.create_block()
+            };
 
             // Check if this pattern matches
             let pattern_matches = KeenCodegen::compile_pattern_match_static(
@@ -1011,7 +1016,7 @@ impl KeenCodegen {
                 pointer_type,
             )?;
 
-            // Branch based on pattern match
+            // Branch: if pattern matches, go to arm_block, else go to next_block
             builder
                 .ins()
                 .brif(pattern_matches, arm_block, &[], next_block, &[]);
@@ -1031,13 +1036,19 @@ impl KeenCodegen {
             )?;
 
             builder.ins().jump(merge_block, &[arm_result]);
-        }
 
-        // Handle default case (no pattern matched)
-        builder.switch_to_block(default_block);
-        builder.seal_block(default_block);
-        let default_value = builder.ins().iconst(int_type, 0); // Default to 0
-        builder.ins().jump(merge_block, &[default_value]);
+            // Switch to next block for next iteration (or default case)
+            if i < arms.len() - 1 {
+                builder.switch_to_block(next_block);
+                builder.seal_block(next_block);
+            } else {
+                // Handle default case (no pattern matched)
+                builder.switch_to_block(next_block);
+                builder.seal_block(next_block);
+                let default_value = builder.ins().iconst(int_type, 0);
+                builder.ins().jump(merge_block, &[default_value]);
+            }
+        }
 
         // Switch to merge block
         builder.switch_to_block(merge_block);
@@ -1056,29 +1067,34 @@ impl KeenCodegen {
         bool_type: types::Type,
         pointer_type: types::Type,
     ) -> Result<Value, CodegenError> {
-        // For when expressions, we evaluate each condition in order
+        // For when expressions, we evaluate each condition in order using a chain of if-else blocks
         let merge_block = builder.create_block();
         let result_type = int_type; // TODO: Infer actual type
         builder.append_block_param(merge_block, result_type);
 
-        let mut arm_blocks = Vec::new();
-        let mut else_blocks = Vec::new();
-
-        // Create blocks for each arm
-        for _ in arms {
-            arm_blocks.push(builder.create_block());
-            else_blocks.push(builder.create_block());
+        // Handle empty arms case
+        if arms.is_empty() {
+            let default_value = builder.ins().iconst(int_type, 0);
+            builder.ins().jump(merge_block, &[default_value]);
+            builder.switch_to_block(merge_block);
+            builder.seal_block(merge_block);
+            return Ok(builder.block_params(merge_block)[0]);
         }
 
-        // Add a final else block
-        let final_else_block = builder.create_block();
+        // Create a chain of condition checking
+        let mut current_block = builder.current_block().unwrap();
 
-        // Process each when arm
         for (i, arm) in arms.iter().enumerate() {
-            let arm_block = arm_blocks[i];
-            let else_block = else_blocks.get(i).copied().unwrap_or(final_else_block);
+            let arm_block = builder.create_block();
+            let next_block = if i == arms.len() - 1 {
+                // Last arm - create default block
+                builder.create_block()
+            } else {
+                // Not last arm - create block for next condition
+                builder.create_block()
+            };
 
-            // Compile the condition
+            // Compile the condition in current block
             let condition = KeenCodegen::compile_expression_static(
                 &arm.condition,
                 builder,
@@ -1089,12 +1105,12 @@ impl KeenCodegen {
                 pointer_type,
             )?;
 
-            // Branch based on condition
+            // Branch: if condition is true, go to arm_block, else go to next_block
             builder
                 .ins()
-                .brif(condition, arm_block, &[], else_block, &[]);
+                .brif(condition, arm_block, &[], next_block, &[]);
 
-            // Compile the arm body
+            // Switch to arm block and compile body
             builder.switch_to_block(arm_block);
             builder.seal_block(arm_block);
 
@@ -1110,17 +1126,14 @@ impl KeenCodegen {
 
             builder.ins().jump(merge_block, &[arm_result]);
 
-            // Switch to else block for next iteration
-            if i < arms.len() - 1 {
-                builder.switch_to_block(else_blocks[i]);
-                builder.seal_block(else_blocks[i]);
-            }
+            // Switch to next block for next iteration (or default case)
+            builder.switch_to_block(next_block);
+            builder.seal_block(next_block);
+            current_block = next_block;
         }
 
-        // Handle final else case
-        builder.switch_to_block(final_else_block);
-        builder.seal_block(final_else_block);
-        let default_value = builder.ins().iconst(int_type, 0); // Default to 0
+        // Handle default case (no conditions matched)
+        let default_value = builder.ins().iconst(int_type, 0);
         builder.ins().jump(merge_block, &[default_value]);
 
         // Switch to merge block

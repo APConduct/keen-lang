@@ -825,6 +825,11 @@ impl ManualParser {
                 self.advance();
                 Ok(Expression::Literal(Literal::Boolean(false)))
             }
+            Some(Token::Underscore) => {
+                self.advance();
+                // Underscore represents a placeholder expression (for partial application)
+                Ok(Expression::Identifier("_".to_string()))
+            }
             Some(Token::Identifier(name)) => {
                 let name = name.clone();
                 self.advance();
