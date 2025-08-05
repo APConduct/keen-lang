@@ -1,0 +1,45 @@
+// Test product types vs union types to isolate the verifier error
+// This will help determine if the issue is specifically with union type constructors
+
+// Product type definition
+type User = User(id: Int, name: String)
+
+// Union type definition
+type Result = Ok(value: String) | Error(message: String)
+
+// Test 1: Product type constructor (this should work based on previous tests)
+alice: User = User(id: 1, name: "Alice")
+
+// Test 2: Union type constructor (this might cause the verifier error)
+success: Result = Ok(value: "test")
+
+// Test 3: Function that creates product type
+create_user(): User = {
+    User(id: 2, name: "Bob")
+}
+
+// Test 4: Function that creates union type
+create_result(): Result = {
+    Error(message: "failed")
+}
+
+// Test 5: Pattern matching on union type
+process_result(result: Result): Int = {
+    case result {
+        Ok(value) -> 1
+        Error(message) -> 0
+    }
+}
+
+// Main function
+main(): Int = {
+    // Test product type operations (should work)
+    user = create_user()
+
+    // Test union type operations (might cause verifier error)
+    result = create_result()
+    status = process_result(success)
+
+    // Return success
+    status
+}

@@ -1,0 +1,40 @@
+// Minimal test to isolate the verifier error
+// This will help us identify what's causing the Cranelift verifier to fail
+
+// Simple product type
+type User = User(id: Int, name: String)
+
+// Test 1: Basic field access without function parameters
+alice: User = User(id: 1, name: "Alice")
+
+// Test 2: Simple function that doesn't use field access
+simple_function(): Int = {
+    42
+}
+
+// Test 3: Function with user-defined type parameter but no field access
+take_user(user: User): Int = {
+    1
+}
+
+// Test 4: Function with field access (this might be the problem)
+get_user_id(user: User): Int = {
+    user.id
+}
+
+// Test 5: Function with live parameter but no field access
+update_simple(live user: User): Int = {
+    2
+}
+
+// Test 6: Function with live parameter AND field access (most complex)
+update_with_field(live user: User): Int = {
+    user.id
+}
+
+// Main function - start with simplest case
+main(): Int = {
+    // Test basic field access on global variable
+    id = alice.id
+    id
+}

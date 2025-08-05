@@ -1,0 +1,44 @@
+// Test global variables with live/keep modifiers to isolate verifier error
+// This tests if the issue is with global variable mutability declarations
+
+// Simple product type
+type User = User(id: Int, name: String)
+
+// Test 1: Regular global variables (these work)
+user1: User = User(id: 1, name: "Alice")
+count = 42
+message = "Hello"
+
+// Test 2: Global variable with live modifier
+live counter: Int = 0
+
+// Test 3: Global variable with keep modifier
+keep MAX_USERS = 1000
+
+// Test 4: Multiple live/keep variables
+live active_count: Int = 5
+keep VERSION = 2
+live status = "running"
+
+// Simple function to test if globals work
+test_globals(): Int = {
+    // Test accessing regular globals
+    id = user1.id
+
+    // Test accessing live global
+    current = counter
+
+    // Test accessing keep global
+    max = MAX_USERS
+
+    // Test modifying live global
+    counter = counter + 1
+
+    id + current + max
+}
+
+// Main function
+main(): Int = {
+    result = test_globals()
+    result
+}

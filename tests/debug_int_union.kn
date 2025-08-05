@@ -1,0 +1,42 @@
+// Test union constructors with only integers to confirm float literals are the issue
+// This should work if the problem is specifically with float literals
+
+// Union type with Float fields but we'll use integers
+type Shape = Circle(radius: Float) | Rectangle(width: Float, height: Float)
+
+// Test 1: Create union with integer values only (should work)
+circle_int = Circle(radius: 5)
+rect_int = Rectangle(width: 10, height: 8)
+
+// Test 2: Function that creates union with integer
+create_circle(): Shape = {
+    Circle(radius: 3)
+}
+
+// Test 3: Function that pattern matches on union
+get_area(shape: Shape): Float = {
+    case shape {
+        Circle(radius) -> 3.14159 * radius * radius
+        Rectangle(width, height) -> width * height
+    }
+}
+
+// Test 4: Mixed operations with integers
+test_mixed(): Float = {
+    circle = Circle(radius: 2)
+    area = get_area(circle)
+    area
+}
+
+// Main function
+main(): Int = {
+    // Test creating unions with integers
+    test_circle = create_circle()
+    test_area = test_mixed()
+
+    // Test pattern matching
+    result_area = get_area(circle_int)
+
+    // Return success
+    42
+}

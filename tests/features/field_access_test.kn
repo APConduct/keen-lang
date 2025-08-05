@@ -1,0 +1,25 @@
+// Minimal field access test to debug the implementation
+
+// Simple product type
+type User = User(id: Int, name: String, age: Int)
+
+// Create a user
+alice: User = User(id: 1, name: "Alice", age: 25)
+
+// Simple function that accesses a field
+get_user_id(user: User): Int = {
+    user.id
+}
+
+// Main function
+main(): Int = {
+    // Test basic field access
+    user_id = alice.id
+    user_age = alice.age
+
+    // Test field access in function
+    id_from_func = get_user_id(alice)
+
+    // Return sum to verify it worked
+    user_id + user_age + id_from_func
+}

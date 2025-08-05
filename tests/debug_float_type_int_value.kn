@@ -1,0 +1,34 @@
+// Test union with Float type declarations but integer values to isolate the issue
+// This tests if the problem is with Float types in union definitions vs Float literals
+
+// Union type with Float field types
+type Shape = Circle(radius: Float) | Rectangle(width: Float, height: Float)
+
+// Test 1: Create union with integer values (even though fields are declared as Float)
+circle_int = Circle(radius: 5)
+rect_int = Rectangle(width: 10, height: 8)
+
+// Test 2: Function that creates union with integer values
+create_circle(): Shape = {
+    Circle(radius: 3)
+}
+
+// Test 3: Function that pattern matches on union
+get_area(shape: Shape): Int = {
+    case shape {
+        Circle(radius) -> radius * radius
+        Rectangle(width, height) -> width * height
+    }
+}
+
+// Main function
+main(): Int = {
+    // Test creating unions with integers (fields declared as Float)
+    test_circle = create_circle()
+
+    // Test pattern matching
+    result_area = get_area(circle_int)
+
+    // Return success
+    result_area
+}

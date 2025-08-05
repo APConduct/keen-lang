@@ -1,0 +1,51 @@
+// Test print statements with field access to isolate the verifier error
+// This tests if the combination of print + field access causes issues
+
+// Product type
+type User = User(id: Int, name: String, email: String, age: Int)
+
+// Create a user
+alice: User = User(id: 1, name: "Alice", email: "alice@test.com", age: 25)
+
+// Test 1: Simple field access without print
+test_field_access(): Int = {
+    name_val = alice.name
+    42
+}
+
+// Test 2: Print without field access
+test_print_simple(): Int = {
+    print("Hello World")
+    42
+}
+
+// Test 3: Print with field access (this might cause the verifier error!)
+test_print_with_field(): Int = {
+    print("User: " + alice.name)
+    42
+}
+
+// Test 4: Multiple print statements with field access
+test_multiple_prints(): Int = {
+    print("User: " + alice.name)
+    print("Age: " + alice.age)
+    42
+}
+
+// Test 5: String concatenation with field access but no print
+test_concat_no_print(): Int = {
+    message = "User: " + alice.name
+    42
+}
+
+// Main function - test each case progressively
+main(): Int = {
+    // Start with simple cases
+    result1 = test_field_access()
+    result2 = test_print_simple()
+
+    // This might be where it fails
+    result3 = test_print_with_field()
+
+    result1 + result2 + result3
+}
