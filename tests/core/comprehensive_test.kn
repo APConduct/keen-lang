@@ -61,7 +61,8 @@ process_data(input) {
 
 // Simple string interpolation
 greeting = "Hello, {name}!"
-status = "System {system_name} is {is_active ? "active" : "inactive"}"
+status_word = is_active ? "active" : "inactive"
+status = "System {system_name} is {status_word}"
 
 // Function with string interpolation
 greet_user(user_name) {
@@ -260,8 +261,8 @@ mixed_features_test(n) {
     // Lambda with string interpolation
     formatter = |x| "Value: {x}"
 
-    // Case with pipeline
-    result = case n {
+    // When with pipeline
+    result = when n {
         < 10 -> n |> double |> increment
         < 20 -> n |> square
         _ -> n |> |x| x / 2

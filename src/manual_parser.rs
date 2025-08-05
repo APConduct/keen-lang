@@ -135,8 +135,8 @@ impl ManualParser {
         // Expect ':'
         self.expect_token(&Token::Colon, "Expected ':' after ternary then expression")?;
 
-        // Parse else expression
-        let else_expr = self.parse_binary_expression()?;
+        // Parse else expression with ternary support
+        let else_expr = self.parse_ternary_level()?;
 
         Ok(Expression::Ternary {
             condition: Box::new(condition),
@@ -228,13 +228,31 @@ impl ManualParser {
                         args,
                     })
                 } else {
-                    Ok(Expression::Identifier(name))
+                    // Check for pipeline after identifier
+                    let expr = Expression::Identifier(name);
+                    if self.check_token(&Token::Pipeline) {
+                        self.parse_pipeline_expression(expr)
+                    } else {
+                        Ok(expr)
+                    }
                 }
             }
             _ => {
-                // For other cases, parse a simple expression but avoid consuming when arm boundaries
-                self.parse_simple_expression()
+                // For other cases, parse an expression that supports pipelines but avoids when/case
+                self.parse_when_arm_expression()
             }
+        }
+    }
+
+    fn parse_when_arm_expression(&mut self) -> Result<Expression, ParseError> {
+        // Parse expressions for when arm bodies, supporting pipelines but avoiding recursion
+        let left = self.parse_binary_expression()?;
+
+        // Check for pipeline operator
+        if self.check_token(&Token::Pipeline) {
+            self.parse_pipeline_expression(left)
+        } else {
+            Ok(left)
         }
     }
 
@@ -511,9 +529,6 @@ impl ManualParser {
             // Check for pipeline operator
             if self.check_token(&Token::Pipeline) {
                 self.parse_pipeline_expression(left)
-            } else if self.check_token(&Token::Question) {
-                // Check for ternary operator
-                self.parse_ternary_expression(left)
             } else {
                 Ok(left)
             }
@@ -720,7 +735,17 @@ impl ManualParser {
     }
 
     fn parse_binary_expression(&mut self) -> Result<Expression, ParseError> {
-        self.parse_comparison()
+        self.parse_ternary_level()
+    }
+
+    fn parse_ternary_level(&mut self) -> Result<Expression, ParseError> {
+        let left = self.parse_comparison()?;
+
+        if self.check_token(&Token::Question) {
+            self.parse_ternary_expression(left)
+        } else {
+            Ok(left)
+        }
     }
 
     fn parse_comparison(&mut self) -> Result<Expression, ParseError> {
@@ -795,6 +820,17 @@ impl ManualParser {
     }
 
     fn parse_simple_expression(&mut self) -> Result<Expression, ParseError> {
+        // Handle unary minus
+        if self.check_token(&Token::Minus) {
+            self.advance(); // consume '-'
+            let expr = self.parse_simple_expression()?;
+            return Ok(Expression::Binary {
+                left: Box::new(Expression::Literal(Literal::Integer(0))),
+                op: BinaryOp::Sub,
+                right: Box::new(expr),
+            });
+        }
+
         match self.current_token() {
             Some(Token::Integer(n)) => {
                 let n = *n;

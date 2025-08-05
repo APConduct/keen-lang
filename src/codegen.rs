@@ -1172,13 +1172,13 @@ impl KeenCodegen {
 
         // Create merge block for all arms to converge
         let merge_block = builder.create_block();
-        // Use float_type for case expressions to handle float arithmetic
-        let result_type = float_type; // Use float_type to support float operations
+        // Use int_type for case expressions to match function signatures
+        let result_type = int_type; // Use int_type to match default function return type
         builder.append_block_param(merge_block, result_type);
 
         // Handle empty arms case
         if arms.is_empty() {
-            let default_value = builder.ins().f64const(0.0);
+            let default_value = builder.ins().iconst(result_type, 0);
             builder.ins().jump(merge_block, &[default_value]);
             builder.switch_to_block(merge_block);
             builder.seal_block(merge_block);
@@ -1254,7 +1254,7 @@ impl KeenCodegen {
                 // Handle default case (no pattern matched)
                 builder.switch_to_block(next_block);
                 builder.seal_block(next_block);
-                let default_value = builder.ins().f64const(0.0);
+                let default_value = builder.ins().iconst(result_type, 0);
                 builder.ins().jump(merge_block, &[default_value]);
             }
         }
@@ -1279,13 +1279,13 @@ impl KeenCodegen {
         // For when expressions, we evaluate each condition in order using a chain of if-else blocks
         // Create merge block for all arms to converge
         let merge_block = builder.create_block();
-        // Use float_type for when expressions to handle float arithmetic
-        let result_type = float_type; // Use float_type to support float operations
+        // Use int_type for when expressions to match function signatures
+        let result_type = int_type; // Use int_type to match default function return type
         builder.append_block_param(merge_block, result_type);
 
         // Handle empty arms case
         if arms.is_empty() {
-            let default_value = builder.ins().f64const(0.0);
+            let default_value = builder.ins().iconst(result_type, 0);
             builder.ins().jump(merge_block, &[default_value]);
             builder.switch_to_block(merge_block);
             builder.seal_block(merge_block);
@@ -1344,7 +1344,7 @@ impl KeenCodegen {
         }
 
         // Handle default case (no conditions matched)
-        let default_value = builder.ins().f64const(0.0);
+        let default_value = builder.ins().iconst(result_type, 0);
         builder.ins().jump(merge_block, &[default_value]);
 
         // Switch to merge block
