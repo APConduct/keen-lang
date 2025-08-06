@@ -1,0 +1,41 @@
+// Even simpler test case for case expressions without user-defined types
+// This isolates the case expression issue to basic pattern matching
+
+// Simple function with case expression returning Float using literal patterns
+simple_float_case(): Float = {
+    x = 1
+    case x {
+        1 -> 3.14159
+        2 -> 2.71828
+        _ -> 1.0
+    }
+}
+
+// Simple function with case expression returning Int
+simple_int_case(): Int = {
+    x = 1
+    case x {
+        1 -> 42
+        2 -> 100
+        _ -> 0
+    }
+}
+
+// Test with boolean patterns
+bool_case(): Float = {
+    flag = true
+    case flag {
+        true -> 1.5
+        false -> 0.5
+    }
+}
+
+// Main function to test
+main(): Int = {
+    float_result = simple_float_case()
+    int_result = simple_int_case()
+    bool_result = bool_case()
+    
+    // Return success
+    1
+}

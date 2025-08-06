@@ -1,0 +1,33 @@
+// Minimal test case for float-returning case expression
+// This isolates the issue with case expressions that should return Float values
+
+// Simple union type for testing
+type Shape = Circle(radius: Float) | Square(side: Float)
+
+// Simple function with case expression returning Float
+test_case_float(shape: Shape): Float = {
+    case shape {
+        Circle(radius) -> radius * 3.14159
+        Square(side) -> side * side
+    }
+}
+
+// Even simpler test with just literals
+simple_case(): Float = {
+    x = 1
+    case x {
+        1 -> 3.14
+        _ -> 2.71
+    }
+}
+
+// Main function to test
+main(): Int = {
+    circle = Circle(radius: 2.0)
+    result = test_case_float(circle)
+    
+    simple_result = simple_case()
+    
+    // Convert to int for return
+    42
+}

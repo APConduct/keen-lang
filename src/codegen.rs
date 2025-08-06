@@ -384,15 +384,78 @@ impl KeenCodegen {
 
             // Compile function body
             let return_val = match &func.body {
-                ast::FunctionBody::Expression(expr) => KeenCodegen::compile_expression_static(
-                    expr,
-                    &mut builder,
-                    &mut variables,
-                    self.int_type,
-                    self.float_type,
-                    self.bool_type,
-                    self.pointer_type,
-                )?,
+                ast::FunctionBody::Expression(expr) => match expr {
+                    ast::Expression::Case {
+                        expr: case_expr,
+                        arms,
+                    } => KeenCodegen::compile_case_expression_with_expected_type(
+                        case_expr,
+                        arms,
+                        &mut builder,
+                        &mut variables,
+                        self.int_type,
+                        self.float_type,
+                        self.bool_type,
+                        self.pointer_type,
+                        return_type,
+                    )?,
+                    ast::Expression::Block {
+                        statements,
+                        expression: Some(block_expr),
+                    } => {
+                        // Handle blocks that end with a case expression
+                        match block_expr.as_ref() {
+                            ast::Expression::Case {
+                                expr: case_expr,
+                                arms,
+                            } => {
+                                // Compile the statements first
+                                for stmt in statements {
+                                    KeenCodegen::compile_statement_static(
+                                        stmt,
+                                        &mut builder,
+                                        &mut variables,
+                                        self.int_type,
+                                        self.float_type,
+                                        self.bool_type,
+                                        self.pointer_type,
+                                    )?;
+                                }
+
+                                // Then compile the case expression with expected type
+                                KeenCodegen::compile_case_expression_with_expected_type(
+                                    case_expr,
+                                    arms,
+                                    &mut builder,
+                                    &mut variables,
+                                    self.int_type,
+                                    self.float_type,
+                                    self.bool_type,
+                                    self.pointer_type,
+                                    return_type,
+                                )?
+                            }
+                            _ => KeenCodegen::compile_expression_static(
+                                expr,
+                                &mut builder,
+                                &mut variables,
+                                self.int_type,
+                                self.float_type,
+                                self.bool_type,
+                                self.pointer_type,
+                            )?,
+                        }
+                    }
+                    _ => KeenCodegen::compile_expression_static(
+                        expr,
+                        &mut builder,
+                        &mut variables,
+                        self.int_type,
+                        self.float_type,
+                        self.bool_type,
+                        self.pointer_type,
+                    )?,
+                },
                 ast::FunctionBody::Block(statements) => {
                     let mut last_val = None;
                     for stmt in statements {
@@ -1174,6 +1237,140 @@ impl KeenCodegen {
         }
     }
 
+    fn compile_case_expression_with_expected_type(
+        expr: &ast::Expression,
+        arms: &[ast::CaseArm],
+        builder: &mut FunctionBuilder,
+        variables: &mut HashMap<String, Variable>,
+        int_type: types::Type,
+        float_type: types::Type,
+        bool_type: types::Type,
+        pointer_type: types::Type,
+        expected_return_type: types::Type,
+    ) -> Result<Value, CodegenError> {
+        println!(
+            "DEBUG: compile_case_expression_with_expected_type called with return type: {:?}",
+            expected_return_type
+        );
+        // Compile the expression to match against
+        let match_value = KeenCodegen::compile_expression_static(
+            expr,
+            builder,
+            variables,
+            int_type,
+            float_type,
+            bool_type,
+            pointer_type,
+        )?;
+
+        // Create merge block for all arms to converge
+        let merge_block = builder.create_block();
+        // Use the expected return type from the function signature
+        let result_type = expected_return_type;
+        builder.append_block_param(merge_block, result_type);
+
+        // Handle empty arms case
+        if arms.is_empty() {
+            let default_value = if result_type == float_type {
+                builder.ins().f64const(0.0)
+            } else if result_type == bool_type {
+                builder.ins().iconst(result_type, 0)
+            } else {
+                builder.ins().iconst(result_type, 0)
+            };
+            builder.ins().jump(merge_block, &[default_value]);
+            builder.switch_to_block(merge_block);
+            builder.seal_block(merge_block);
+            return Ok(builder.block_params(merge_block)[0]);
+        }
+
+        // Create a chain of pattern checks
+        for (i, arm) in arms.iter().enumerate() {
+            let arm_block = builder.create_block();
+            let next_block = if i == arms.len() - 1 {
+                // Last arm - create default block
+                builder.create_block()
+            } else {
+                // Not last arm - create block for next pattern check
+                builder.create_block()
+            };
+
+            // Check if this pattern matches
+            let pattern_matches = KeenCodegen::compile_pattern_match_static(
+                &arm.pattern,
+                match_value,
+                builder,
+                variables,
+                int_type,
+                float_type,
+                bool_type,
+                pointer_type,
+            )?;
+
+            // Branch: if pattern matches, go to arm_block, else go to next_block
+            builder
+                .ins()
+                .brif(pattern_matches, arm_block, &[], next_block, &[]);
+
+            // Switch to arm block and compile the body
+            builder.switch_to_block(arm_block);
+            builder.seal_block(arm_block);
+
+            let arm_result = KeenCodegen::compile_expression_static(
+                &arm.body,
+                builder,
+                variables,
+                int_type,
+                float_type,
+                bool_type,
+                pointer_type,
+            )?;
+
+            // Check if we need type conversion
+            let converted_result = if builder.func.dfg.value_type(arm_result) != result_type {
+                if builder.func.dfg.value_type(arm_result) == types::F64
+                    && result_type == types::I64
+                {
+                    builder.ins().fcvt_to_sint(types::I64, arm_result)
+                } else if builder.func.dfg.value_type(arm_result) == types::I64
+                    && result_type == types::F64
+                {
+                    builder.ins().fcvt_from_sint(types::F64, arm_result)
+                } else {
+                    arm_result
+                }
+            } else {
+                arm_result
+            };
+
+            builder.ins().jump(merge_block, &[converted_result]);
+
+            // Switch to next block for next iteration (or default case)
+            if i < arms.len() - 1 {
+                builder.switch_to_block(next_block);
+                builder.seal_block(next_block);
+            } else {
+                // Handle default case (no pattern matched)
+                builder.switch_to_block(next_block);
+                builder.seal_block(next_block);
+                let default_value = if result_type == float_type {
+                    builder.ins().f64const(0.0)
+                } else if result_type == bool_type {
+                    builder.ins().iconst(result_type, 0)
+                } else {
+                    builder.ins().iconst(result_type, 0)
+                };
+                builder.ins().jump(merge_block, &[default_value]);
+            }
+        }
+
+        // Switch to merge block
+        builder.switch_to_block(merge_block);
+        builder.seal_block(merge_block);
+
+        Ok(builder.block_params(merge_block)[0])
+    }
+
     fn compile_case_expression_static(
         expr: &ast::Expression,
         arms: &[ast::CaseArm],
@@ -1398,7 +1595,7 @@ impl KeenCodegen {
             }
             ast::Pattern::Identifier(name) => {
                 // Bind the value to the identifier
-                let var = Variable::new(variables.len());
+                let var = Variable::new(20000 + variables.len() * 50);
                 builder.declare_var(var, int_type); // TODO: Infer actual type
                 builder.def_var(var, match_value);
                 variables.insert(name.clone(), var);
@@ -1413,26 +1610,32 @@ impl KeenCodegen {
             ast::Pattern::Constructor { name, args } => {
                 // Implement constructor pattern matching
                 // For now, we'll bind pattern variables with appropriate types
+                let mut pattern_var_counter = 10000 + variables.len() * 100;
                 for (i, arg) in args.iter().enumerate() {
                     match arg {
                         ast::Pattern::Identifier(var_name) => {
-                            // Create a variable for the pattern binding
-                            let var = Variable::new(variables.len() + 1000 + i);
+                            // Create a unique variable ID for the pattern binding
+                            let var = Variable::new(pattern_var_counter);
+                            pattern_var_counter += 1;
 
                             // Determine type based on constructor and position
                             let var_type = match name.as_str() {
                                 "Circle" => {
-                                    // Circle has one float field: radius
+                                    // Circle(center: Point, radius: Float)
                                     if i == 0 {
-                                        float_type
+                                        _pointer_type // center is Point
+                                    } else if i == 1 {
+                                        float_type // radius is Float
                                     } else {
                                         int_type
                                     }
                                 }
                                 "Rectangle" => {
-                                    // Rectangle has two float fields: width, height
-                                    if i < 2 {
-                                        float_type
+                                    // Rectangle(corner: Point, width: Float, height: Float)
+                                    if i == 0 {
+                                        _pointer_type // corner is Point
+                                    } else if i == 1 || i == 2 {
+                                        float_type // width and height are Float
                                     } else {
                                         int_type
                                     }
@@ -1453,6 +1656,9 @@ impl KeenCodegen {
                             let value = match name.as_str() {
                                 "Circle" => {
                                     if i == 0 {
+                                        // center field - return a Point pointer
+                                        builder.ins().iconst(_pointer_type, 0x1000)
+                                    } else if i == 1 {
                                         // radius field - return a float
                                         builder.ins().f64const(5.0)
                                     } else {
@@ -1461,9 +1667,12 @@ impl KeenCodegen {
                                 }
                                 "Rectangle" => {
                                     if i == 0 {
+                                        // corner field - return a Point pointer
+                                        builder.ins().iconst(_pointer_type, 0x2000)
+                                    } else if i == 1 {
                                         // width field - return a float
                                         builder.ins().f64const(10.0)
-                                    } else if i == 1 {
+                                    } else if i == 2 {
                                         // height field - return a float
                                         builder.ins().f64const(8.0)
                                     } else {

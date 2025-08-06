@@ -174,7 +174,7 @@ get_user_status(status: AuthStatus): Int = {
 analyze_user(user: User): String = {
  case user {
  User(UserId(id), name, Email(email_addr), age) -> {
- case age {
+ when age {
  < 18 -> "minor"
  < 65 -> "adult"
  _ -> "senior"
@@ -204,15 +204,15 @@ compare_users(user1: User, user2: User): Result = {
 }
 
 // Function combining multiple type operations
-process_shape_collection(shapes: List): Result = {
+process_shape_collection(): Result = {
  // In a real implementation, this would process a list of shapes
  // For now, just test basic shape operations
  test_shape = Circle(center: origin, radius: 2.0)
  area = calculate_area(test_shape)
 
- case area > 0.0 {
-     true -> Ok("Shapes processed")
-     false -> Error("Invalid shapes")
+ when area {
+     > 0.0 -> Ok("Shapes processed")
+     _ -> Error("Invalid shapes")
  }
 }
 
@@ -274,7 +274,7 @@ main(): Int = {
  comparison_result = process_result(comparison)
 
  // Test shape collection processing
- shape_processing = process_shape_collection([])
+ shape_processing = process_shape_collection()
  shape_result = process_result(shape_processing)
 
  // Return sum of all test results to verify everything worked
