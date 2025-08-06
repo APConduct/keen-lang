@@ -523,6 +523,9 @@ impl ManualParser {
         } else if self.check_token(&Token::Pipe) {
             // Check for lambda expression
             self.parse_lambda_expression()
+        } else if self.check_token(&Token::LogicalOr) {
+            // Check for no-parameter lambda expression (|| expr)
+            self.parse_no_param_lambda_expression()
         } else {
             let left = self.parse_binary_expression()?;
 
@@ -862,6 +865,7 @@ impl ManualParser {
                 // Underscore represents a placeholder expression (for partial application)
                 Ok(Expression::Identifier("_".to_string()))
             }
+            Some(Token::LogicalOr) => self.parse_no_param_lambda_expression(),
             Some(Token::Identifier(name)) => {
                 let name = name.clone();
                 self.advance();
@@ -1119,6 +1123,17 @@ impl ManualParser {
         }
     }
 
+    pub fn parse_no_param_lambda_expression(&mut self) -> Result<Expression, ParseError> {
+        self.expect_token(&Token::LogicalOr, "Expected '||'")?;
+
+        let body = self.parse_expression()?;
+
+        Ok(Expression::Lambda {
+            params: Vec::new(),
+            body: Box::new(body),
+        })
+    }
+
     fn expect_token(&mut self, expected: &Token, message: &str) -> Result<(), ParseError> {
         if self.check_token(expected) {
             self.advance();
@@ -1301,7 +1316,7 @@ impl ManualParser {
                 return Err(ParseError {
                     message: "Expected type name after 'type'".to_string(),
                     position: self.position,
-                })
+                });
             }
         };
 
@@ -1309,7 +1324,9 @@ impl ManualParser {
         self.expect_token(&Token::Assign, "Expected '=' after type name")?;
 
         // Parse the type definition - this could be a union type or product type
-        let type_def = if self.check_type_is_union() {
+        let is_union = self.check_type_is_union();
+
+        let type_def = if is_union {
             self.parse_union_type(type_name)?
         } else {
             self.parse_product_type(type_name)?
@@ -1370,7 +1387,7 @@ impl ManualParser {
                 return Err(ParseError {
                     message: "Expected variant name".to_string(),
                     position: self.position,
-                })
+                });
             }
         };
 
@@ -1406,7 +1423,7 @@ impl ManualParser {
 
     fn parse_product_type(&mut self, name: String) -> Result<TypeDef, ParseError> {
         // Parse constructor name (should be same as type name for product types)
-        let constructor_name = match self.current_token() {
+        let _constructor_name = match self.current_token() {
             Some(Token::Identifier(constructor)) => {
                 let constructor = constructor.clone();
                 self.advance();
@@ -1416,7 +1433,7 @@ impl ManualParser {
                 return Err(ParseError {
                     message: "Expected constructor name".to_string(),
                     position: self.position,
-                })
+                });
             }
         };
 
@@ -1455,7 +1472,7 @@ impl ManualParser {
                 return Err(ParseError {
                     message: "Expected field name".to_string(),
                     position: self.position,
-                })
+                });
             }
         };
 
@@ -1472,22 +1489,10 @@ impl ManualParser {
     }
 
     pub fn parse_function(&mut self) -> Result<Item, ParseError> {
-        eprintln!(
-            "DEBUG: Starting function parsing at position {}",
-            self.position
-        );
-
         // Function name
         let name = match self.current_token() {
-            Some(Token::Identifier(n)) => {
-                eprintln!("DEBUG: Found function name: {}", n);
-                n.clone()
-            }
+            Some(Token::Identifier(n)) => n.clone(),
             _ => {
-                eprintln!(
-                    "DEBUG: Expected function name, found: {:?}",
-                    self.current_token()
-                );
                 return Err(ParseError {
                     message: "Expected function name".to_string(),
                     position: self.position,
@@ -1497,7 +1502,6 @@ impl ManualParser {
         self.advance();
 
         // Parameters
-        eprintln!("DEBUG: Parsing parameters");
         self.expect_token(&Token::LeftParen, "Expected '(' after function name")?;
         let mut params = Vec::new();
 
@@ -1516,7 +1520,6 @@ impl ManualParser {
             };
 
             if let Some(Token::Identifier(param_name)) = self.current_token() {
-                eprintln!("DEBUG: Found parameter: {}", param_name);
                 let param_name = param_name.clone();
                 self.advance();
 
@@ -1538,10 +1541,6 @@ impl ManualParser {
                     self.advance();
                 }
             } else {
-                eprintln!(
-                    "DEBUG: Expected parameter name, found: {:?}",
-                    self.current_token()
-                );
                 return Err(ParseError {
                     message: "Expected parameter name".to_string(),
                     position: self.position,
@@ -1550,11 +1549,9 @@ impl ManualParser {
         }
 
         self.expect_token(&Token::RightParen, "Expected ')' after parameters")?;
-        eprintln!("DEBUG: Finished parsing {} parameters", params.len());
 
         // Optional return type
         let return_type = if self.check_token(&Token::Colon) {
-            eprintln!("DEBUG: Parsing return type");
             self.advance();
             Some(self.parse_type()?)
         } else {
@@ -1562,54 +1559,37 @@ impl ManualParser {
         };
 
         // Function body
-        eprintln!(
-            "DEBUG: Parsing function body, current token: {:?}",
-            self.current_token()
-        );
         let body = if self.check_token(&Token::Assign) {
-            eprintln!("DEBUG: Found = syntax");
             self.advance();
 
             // Check if this is = { ... } (block expression) or = expr
             if self.check_token(&Token::LeftBrace) {
                 // This is foo() = { ... } syntax
-                eprintln!("DEBUG: Parsing = {{ block expression");
                 let block_expr = self.parse_block_expression()?;
                 FunctionBody::Expression(block_expr)
             } else {
                 // This is foo() = expr syntax
-                eprintln!("DEBUG: Parsing = expr");
                 let expr = self.parse_expression()?;
                 FunctionBody::Expression(expr)
             }
         } else if self.check_token(&Token::LeftBrace) {
             // This is foo() { ... } syntax
-            eprintln!("DEBUG: Parsing {{ block statements");
             self.advance();
             let mut statements = Vec::new();
 
             while !self.check_token(&Token::RightBrace) && !self.is_at_end() {
-                eprintln!(
-                    "DEBUG: Parsing statement, current token: {:?}",
-                    self.current_token()
-                );
                 statements.push(self.parse_statement()?);
             }
 
             self.expect_token(&Token::RightBrace, "Expected '}' after function body")?;
             FunctionBody::Block(statements)
         } else {
-            eprintln!(
-                "DEBUG: No valid function body found, current token: {:?}",
-                self.current_token()
-            );
             return Err(ParseError {
                 message: "Expected function body (= expr, = { ... }, or { ... })".to_string(),
                 position: self.position,
             });
         };
 
-        eprintln!("DEBUG: Successfully parsed function: {}", name);
         Ok(Item::Function(Function {
             name,
             params,
@@ -1637,7 +1617,7 @@ impl ManualParser {
                 return Err(ParseError {
                     message: "Expected variable name".to_string(),
                     position: self.position,
-                })
+                });
             }
         };
         self.advance();

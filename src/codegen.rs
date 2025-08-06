@@ -336,7 +336,12 @@ impl KeenCodegen {
 
         // Add return type based on function declaration
         let return_type = if let Some(ret_type) = &func.return_type {
-            self.get_cranelift_type(&Some(ret_type.clone()))?
+            let cranelift_type = self.get_cranelift_type(&Some(ret_type.clone()))?;
+            println!(
+                "DEBUG: Function '{}' declared return type: {:?} -> Cranelift type: {:?}",
+                func.name, ret_type, cranelift_type
+            );
+            cranelift_type
         } else {
             self.int_type // Default to int for functions without explicit return type
         };
@@ -399,6 +404,20 @@ impl KeenCodegen {
                         self.pointer_type,
                         return_type,
                     )?,
+                    ast::Expression::When {
+                        expr: when_expr,
+                        arms,
+                    } => KeenCodegen::compile_when_expression_with_expected_type(
+                        when_expr,
+                        arms,
+                        &mut builder,
+                        &mut variables,
+                        self.int_type,
+                        self.float_type,
+                        self.bool_type,
+                        self.pointer_type,
+                        return_type,
+                    )?,
                     ast::Expression::Block {
                         statements,
                         expression: Some(block_expr),
@@ -425,6 +444,36 @@ impl KeenCodegen {
                                 // Then compile the case expression with expected type
                                 KeenCodegen::compile_case_expression_with_expected_type(
                                     case_expr,
+                                    arms,
+                                    &mut builder,
+                                    &mut variables,
+                                    self.int_type,
+                                    self.float_type,
+                                    self.bool_type,
+                                    self.pointer_type,
+                                    return_type,
+                                )?
+                            }
+                            ast::Expression::When {
+                                expr: when_expr,
+                                arms,
+                            } => {
+                                // Compile the statements first
+                                for stmt in statements {
+                                    KeenCodegen::compile_statement_static(
+                                        stmt,
+                                        &mut builder,
+                                        &mut variables,
+                                        self.int_type,
+                                        self.float_type,
+                                        self.bool_type,
+                                        self.pointer_type,
+                                    )?;
+                                }
+
+                                // Then compile the when expression with expected type
+                                KeenCodegen::compile_when_expression_with_expected_type(
+                                    when_expr,
                                     arms,
                                     &mut builder,
                                     &mut variables,
@@ -509,9 +558,15 @@ impl KeenCodegen {
             }
             Err(e) => {
                 println!("DEBUG: Failed to define function '{}': {}", func.name, e);
-                println!("DEBUG: Function signature: {:?}", self.ctx.func.signature);
-                println!("DEBUG: Function params: {:?}", func.params);
-                println!("DEBUG: Function return type: {:?}", func.return_type);
+                println!(
+                    "DEBUG: Function '{}' signature: {:?}",
+                    func.name, self.ctx.func.signature
+                );
+                println!("DEBUG: Function '{}' params: {:?}", func.name, func.params);
+                println!(
+                    "DEBUG: Function '{}' return type: {:?}",
+                    func.name, func.return_type
+                );
                 return Err(CodegenError::Compilation(format!(
                     "Failed to define function: {}",
                     e
@@ -1488,6 +1543,133 @@ impl KeenCodegen {
         Ok(builder.block_params(merge_block)[0])
     }
 
+    fn compile_when_expression_with_expected_type(
+        expr: &ast::Expression,
+        arms: &[ast::WhenArm],
+        builder: &mut FunctionBuilder,
+        variables: &mut HashMap<String, Variable>,
+        int_type: types::Type,
+        float_type: types::Type,
+        bool_type: types::Type,
+        pointer_type: types::Type,
+        expected_return_type: types::Type,
+    ) -> Result<Value, CodegenError> {
+        println!(
+            "DEBUG: compile_when_expression_with_expected_type called with return type: {:?}",
+            expected_return_type
+        );
+        // For when expressions, we evaluate each condition in order using a chain of if-else blocks
+        // Create merge block for all arms to converge
+        let merge_block = builder.create_block();
+        // Use the expected return type from the function signature
+        let result_type = expected_return_type;
+        builder.append_block_param(merge_block, result_type);
+
+        // Handle empty arms case
+        if arms.is_empty() {
+            let default_value = if result_type == float_type {
+                builder.ins().f64const(0.0)
+            } else if result_type == bool_type {
+                builder.ins().iconst(result_type, 0)
+            } else {
+                builder.ins().iconst(result_type, 0)
+            };
+            builder.ins().jump(merge_block, &[default_value]);
+            builder.switch_to_block(merge_block);
+            builder.seal_block(merge_block);
+            return Ok(builder.block_params(merge_block)[0]);
+        }
+
+        // Create a chain of condition checking
+        let mut current_block = builder.current_block().unwrap();
+
+        for (i, arm) in arms.iter().enumerate() {
+            let arm_block = builder.create_block();
+            let next_block = if i == arms.len() - 1 {
+                // Last arm - create default block
+                builder.create_block()
+            } else {
+                // Not last arm - create block for next condition
+                builder.create_block()
+            };
+
+            // Compile the condition in current block
+            let condition = KeenCodegen::compile_expression_static(
+                &arm.condition,
+                builder,
+                variables,
+                int_type,
+                float_type,
+                bool_type,
+                pointer_type,
+            )?;
+
+            // Branch: if condition is true, go to arm_block, else go to next_block
+            builder
+                .ins()
+                .brif(condition, arm_block, &[], next_block, &[]);
+
+            // Switch to arm block and compile body
+            builder.switch_to_block(arm_block);
+            builder.seal_block(arm_block);
+
+            let arm_result = KeenCodegen::compile_expression_static(
+                &arm.body,
+                builder,
+                variables,
+                int_type,
+                float_type,
+                bool_type,
+                pointer_type,
+            )?;
+
+            println!(
+                "DEBUG: When arm body compiled to type: {:?}",
+                builder.func.dfg.value_type(arm_result)
+            );
+
+            // Check if we need type conversion
+            let converted_result = if builder.func.dfg.value_type(arm_result) != result_type {
+                if builder.func.dfg.value_type(arm_result) == types::F64
+                    && result_type == types::I64
+                {
+                    builder.ins().fcvt_to_sint(types::I64, arm_result)
+                } else if builder.func.dfg.value_type(arm_result) == types::I64
+                    && result_type == types::F64
+                {
+                    builder.ins().fcvt_from_sint(types::F64, arm_result)
+                } else {
+                    arm_result
+                }
+            } else {
+                arm_result
+            };
+
+            builder.ins().jump(merge_block, &[converted_result]);
+
+            // Switch to next block for next iteration (or default case)
+            builder.switch_to_block(next_block);
+            builder.seal_block(next_block);
+            current_block = next_block;
+        }
+
+        // Handle default case (no conditions matched)
+        let default_value = if result_type == float_type {
+            builder.ins().f64const(0.0)
+        } else if result_type == bool_type {
+            builder.ins().iconst(result_type, 0)
+        } else {
+            builder.ins().iconst(result_type, 0)
+        };
+        builder.ins().jump(merge_block, &[default_value]);
+
+        // Switch to merge block
+        builder.switch_to_block(merge_block);
+        builder.seal_block(merge_block);
+
+        Ok(builder.block_params(merge_block)[0])
+    }
+
     fn compile_when_expression_static(
         expr: &ast::Expression,
         arms: &[ast::WhenArm],
@@ -1557,6 +1739,11 @@ impl KeenCodegen {
                 pointer_type,
             )?;
 
+            println!(
+                "DEBUG: When arm body compiled to type: {:?}",
+                builder.func.dfg.value_type(arm_result)
+            );
+
             builder.ins().jump(merge_block, &[arm_result]);
 
             // Switch to next block for next iteration (or default case)
@@ -1621,20 +1808,16 @@ impl KeenCodegen {
                             // Determine type based on constructor and position
                             let var_type = match name.as_str() {
                                 "Circle" => {
-                                    // Circle(center: Point, radius: Float)
+                                    // Circle(radius: Float) - single field constructor
                                     if i == 0 {
-                                        _pointer_type // center is Point
-                                    } else if i == 1 {
                                         float_type // radius is Float
                                     } else {
                                         int_type
                                     }
                                 }
                                 "Rectangle" => {
-                                    // Rectangle(corner: Point, width: Float, height: Float)
-                                    if i == 0 {
-                                        _pointer_type // corner is Point
-                                    } else if i == 1 || i == 2 {
+                                    // Rectangle(width: Float, height: Float)
+                                    if i == 0 || i == 1 {
                                         float_type // width and height are Float
                                     } else {
                                         int_type
@@ -1656,9 +1839,6 @@ impl KeenCodegen {
                             let value = match name.as_str() {
                                 "Circle" => {
                                     if i == 0 {
-                                        // center field - return a Point pointer
-                                        builder.ins().iconst(_pointer_type, 0x1000)
-                                    } else if i == 1 {
                                         // radius field - return a float
                                         builder.ins().f64const(5.0)
                                     } else {
@@ -1667,12 +1847,9 @@ impl KeenCodegen {
                                 }
                                 "Rectangle" => {
                                     if i == 0 {
-                                        // corner field - return a Point pointer
-                                        builder.ins().iconst(_pointer_type, 0x2000)
-                                    } else if i == 1 {
                                         // width field - return a float
                                         builder.ins().f64const(10.0)
-                                    } else if i == 2 {
+                                    } else if i == 1 {
                                         // height field - return a float
                                         builder.ins().f64const(8.0)
                                     } else {
@@ -2959,29 +3136,9 @@ impl KeenCodegen {
                 "String" => Ok(self.pointer_type), // String as pointer for now
                 _ => {
                     // Check if this is a user-defined type
-                    println!("DEBUG: Looking up type: '{}'", name);
-                    println!("DEBUG: Type name length: {}", name.len());
-                    println!("DEBUG: Type name bytes: {:?}", name.as_bytes());
-                    println!(
-                        "DEBUG: Available types: {:?}",
-                        self.type_registry.keys().collect::<Vec<_>>()
-                    );
-                    for key in self.type_registry.keys() {
-                        println!(
-                            "DEBUG: Registry key: '{}' (len: {}, bytes: {:?})",
-                            key,
-                            key.len(),
-                            key.as_bytes()
-                        );
-                        println!("DEBUG: Keys equal? {}", key == name);
-                    }
-                    let contains = self.type_registry.contains_key(name);
-                    println!("DEBUG: contains_key result: {}", contains);
-                    if contains {
-                        println!("DEBUG: Found user-defined type, using pointer type");
+                    if self.type_registry.contains_key(name) {
                         Ok(self.pointer_type)
                     } else {
-                        println!("DEBUG: Type not found in registry");
                         Err(CodegenError::Type(format!("Unknown type: {}", name)))
                     }
                 }
