@@ -1250,6 +1250,7 @@ impl ManualParser {
 
     pub fn parse_item(&mut self) -> Result<Item, ParseError> {
         // Try to parse different types of items
+
         if let Some(Token::Type) = self.current_token() {
             self.parse_type_definition()
         } else if let Some(Token::Identifier(_)) = self.current_token() {

@@ -21,6 +21,13 @@ pub struct KeenCodegen {
     next_variable_id: usize,
 }
 
+// Static counter for unique variable IDs across all instances
+static NEXT_VARIABLE_ID: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(1000);
+
+fn get_unique_variable_id() -> usize {
+    NEXT_VARIABLE_ID.fetch_add(1, std::sync::atomic::Ordering::SeqCst)
+}
+
 #[derive(Debug)]
 pub enum CodegenError {
     Module(String),
@@ -750,8 +757,7 @@ impl KeenCodegen {
                             let mut lambda_vars = variables.clone();
 
                             // Create a variable for the lambda parameter with unique ID
-                            let param_var =
-                                Variable::new(10000 + variables.len() * 100 + args.len() * 37);
+                            let param_var = Variable::new(get_unique_variable_id());
                             builder.declare_var(param_var, int_type);
 
                             // Compile the argument (the piped value)
@@ -786,9 +792,7 @@ impl KeenCodegen {
                             // Bind all arguments to lambda parameters
                             for (i, param) in params.iter().enumerate() {
                                 if i < args.len() {
-                                    let param_var = Variable::new(
-                                        10000 + variables.len() * 100 + args.len() * 37 + i * 13,
-                                    );
+                                    let param_var = Variable::new(get_unique_variable_id());
                                     builder.declare_var(param_var, int_type);
 
                                     let arg_val = KeenCodegen::compile_expression_static(
@@ -1786,7 +1790,7 @@ impl KeenCodegen {
             }
             ast::Pattern::Identifier(name) => {
                 // Bind the value to the identifier
-                let var = Variable::new(20000 + variables.len() * 50 + name.len());
+                let var = Variable::new(get_unique_variable_id());
                 builder.declare_var(var, int_type); // TODO: Infer actual type
                 builder.def_var(var, match_value);
                 variables.insert(name.clone(), var);
@@ -1806,7 +1810,7 @@ impl KeenCodegen {
                     match arg {
                         ast::Pattern::Identifier(var_name) => {
                             // Create a unique variable ID for the pattern binding
-                            let var = Variable::new(pattern_var_counter + var_name.len());
+                            let var = Variable::new(get_unique_variable_id());
                             pattern_var_counter += 10;
 
                             // Determine type based on constructor and position
@@ -2269,7 +2273,7 @@ impl KeenCodegen {
             let mut lambda_variables = variables.clone();
 
             // Create a variable for the lambda parameter
-            let param_var = Variable::new(30000 + variables.len() * 100 + params[0].len());
+            let param_var = Variable::new(get_unique_variable_id());
             builder.declare_var(param_var, int_type);
 
             // Lambda parameters are bound at call time
@@ -2314,7 +2318,7 @@ impl KeenCodegen {
             // Create variables for all parameters
             let mut param_vars = Vec::new();
             for (i, param) in params.iter().enumerate() {
-                let param_var = Variable::new(30000 + variables.len() * 100 + i * 10 + param.len());
+                let param_var = Variable::new(get_unique_variable_id());
                 builder.declare_var(param_var, int_type);
 
                 let placeholder_val = builder.ins().iconst(int_type, 0);
