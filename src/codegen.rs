@@ -342,15 +342,15 @@ impl KeenCodegen {
         }
 
         // Add return type based on function declaration
-        let return_type = if let Some(ret_type) = &func.return_type {
+        let (return_type, expected_cranelift_type) = if let Some(ret_type) = &func.return_type {
             let cranelift_type = self.get_cranelift_type(&Some(ret_type.clone()))?;
             println!(
                 "DEBUG: Function '{}' declared return type: {:?} -> Cranelift type: {:?}",
                 func.name, ret_type, cranelift_type
             );
-            cranelift_type
+            (cranelift_type, Some(cranelift_type))
         } else {
-            self.int_type // Default to int for functions without explicit return type
+            (self.int_type, None) // Default to int for functions without explicit return type
         };
         sig.returns.push(AbiParam::new(return_type));
 
@@ -541,7 +541,49 @@ impl KeenCodegen {
             );
             if func.return_type.is_some() || func.name == "main" {
                 println!("DEBUG: Returning value for function: {}", func.name);
-                builder.ins().return_(&[return_val]);
+
+                // Convert return value to expected type if necessary
+                let converted_return_val = if let Some(expected_type) = expected_cranelift_type {
+                    let actual_type = builder.func.dfg.value_type(return_val);
+
+                    if actual_type != expected_type {
+                        println!(
+                            "DEBUG: Converting return type from {:?} to {:?} for function '{}'",
+                            actual_type, expected_type, func.name
+                        );
+
+                        match (actual_type, expected_type) {
+                            // Int to Float conversion
+                            (types::I64, types::F64) => {
+                                builder.ins().fcvt_from_sint(types::F64, return_val)
+                            }
+                            // Float to Int conversion
+                            (types::F64, types::I64) => {
+                                builder.ins().fcvt_to_sint(types::I64, return_val)
+                            }
+                            // Bool to Int conversion
+                            (types::I8, types::I64) => {
+                                builder.ins().uextend(types::I64, return_val)
+                            }
+                            // Int to Bool conversion
+                            (types::I64, types::I8) => builder.ins().ireduce(types::I8, return_val),
+                            // No conversion needed or unsupported conversion
+                            _ => {
+                                println!(
+                                    "DEBUG: No conversion available from {:?} to {:?}, using original value",
+                                    actual_type, expected_type
+                                );
+                                return_val
+                            }
+                        }
+                    } else {
+                        return_val
+                    }
+                } else {
+                    return_val
+                };
+
+                builder.ins().return_(&[converted_return_val]);
             } else {
                 // For functions without explicit return type, return 0
                 println!(
@@ -1210,36 +1252,53 @@ impl KeenCodegen {
         let left_type = builder.func.dfg.value_type(left);
         let right_type = builder.func.dfg.value_type(right);
 
-        // If either operand is a float, use float operations
+        // If either operand is a float, use float operations with type conversion
         let use_float_ops = left_type == types::F64 || right_type == types::F64;
+
+        // Convert operands to the same type if needed
+        let (left_val, right_val) = if use_float_ops {
+            let left_float = if left_type == types::F64 {
+                left
+            } else {
+                builder.ins().fcvt_from_sint(types::F64, left)
+            };
+            let right_float = if right_type == types::F64 {
+                right
+            } else {
+                builder.ins().fcvt_from_sint(types::F64, right)
+            };
+            (left_float, right_float)
+        } else {
+            (left, right)
+        };
 
         match op {
             ast::BinaryOp::Add => {
                 if use_float_ops {
-                    Ok(builder.ins().fadd(left, right))
+                    Ok(builder.ins().fadd(left_val, right_val))
                 } else {
-                    Ok(builder.ins().iadd(left, right))
+                    Ok(builder.ins().iadd(left_val, right_val))
                 }
             }
             ast::BinaryOp::Sub => {
                 if use_float_ops {
-                    Ok(builder.ins().fsub(left, right))
+                    Ok(builder.ins().fsub(left_val, right_val))
                 } else {
-                    Ok(builder.ins().isub(left, right))
+                    Ok(builder.ins().isub(left_val, right_val))
                 }
             }
             ast::BinaryOp::Mul => {
                 if use_float_ops {
-                    Ok(builder.ins().fmul(left, right))
+                    Ok(builder.ins().fmul(left_val, right_val))
                 } else {
-                    Ok(builder.ins().imul(left, right))
+                    Ok(builder.ins().imul(left_val, right_val))
                 }
             }
             ast::BinaryOp::Div => {
                 if use_float_ops {
-                    Ok(builder.ins().fdiv(left, right))
+                    Ok(builder.ins().fdiv(left_val, right_val))
                 } else {
-                    Ok(builder.ins().sdiv(left, right))
+                    Ok(builder.ins().sdiv(left_val, right_val))
                 }
             }
             ast::BinaryOp::Mod => {
@@ -1253,48 +1312,58 @@ impl KeenCodegen {
             }
             ast::BinaryOp::Equal => {
                 if use_float_ops {
-                    Ok(builder.ins().fcmp(FloatCC::Equal, left, right))
+                    Ok(builder.ins().fcmp(FloatCC::Equal, left_val, right_val))
                 } else {
-                    Ok(builder.ins().icmp(IntCC::Equal, left, right))
+                    Ok(builder.ins().icmp(IntCC::Equal, left_val, right_val))
                 }
             }
             ast::BinaryOp::NotEqual => {
                 if use_float_ops {
-                    Ok(builder.ins().fcmp(FloatCC::NotEqual, left, right))
+                    Ok(builder.ins().fcmp(FloatCC::NotEqual, left_val, right_val))
                 } else {
-                    Ok(builder.ins().icmp(IntCC::NotEqual, left, right))
+                    Ok(builder.ins().icmp(IntCC::NotEqual, left_val, right_val))
                 }
             }
             ast::BinaryOp::Less => {
                 if use_float_ops {
-                    Ok(builder.ins().fcmp(FloatCC::LessThan, left, right))
+                    Ok(builder.ins().fcmp(FloatCC::LessThan, left_val, right_val))
                 } else {
-                    Ok(builder.ins().icmp(IntCC::SignedLessThan, left, right))
+                    Ok(builder
+                        .ins()
+                        .icmp(IntCC::SignedLessThan, left_val, right_val))
                 }
             }
             ast::BinaryOp::Greater => {
                 if use_float_ops {
-                    Ok(builder.ins().fcmp(FloatCC::GreaterThan, left, right))
+                    Ok(builder
+                        .ins()
+                        .fcmp(FloatCC::GreaterThan, left_val, right_val))
                 } else {
-                    Ok(builder.ins().icmp(IntCC::SignedGreaterThan, left, right))
+                    Ok(builder
+                        .ins()
+                        .icmp(IntCC::SignedGreaterThan, left_val, right_val))
                 }
             }
             ast::BinaryOp::LessEqual => {
                 if use_float_ops {
-                    Ok(builder.ins().fcmp(FloatCC::LessThanOrEqual, left, right))
+                    Ok(builder
+                        .ins()
+                        .fcmp(FloatCC::LessThanOrEqual, left_val, right_val))
                 } else {
                     Ok(builder
                         .ins()
-                        .icmp(IntCC::SignedLessThanOrEqual, left, right))
+                        .icmp(IntCC::SignedLessThanOrEqual, left_val, right_val))
                 }
             }
             ast::BinaryOp::GreaterEqual => {
                 if use_float_ops {
-                    Ok(builder.ins().fcmp(FloatCC::GreaterThanOrEqual, left, right))
+                    Ok(builder
+                        .ins()
+                        .fcmp(FloatCC::GreaterThanOrEqual, left_val, right_val))
                 } else {
                     Ok(builder
                         .ins()
-                        .icmp(IntCC::SignedGreaterThanOrEqual, left, right))
+                        .icmp(IntCC::SignedGreaterThanOrEqual, left_val, right_val))
                 }
             }
         }
