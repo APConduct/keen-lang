@@ -1,0 +1,37 @@
+// Minimal lambda test to debug variable collision issue
+
+// Simple lambda expressions that might cause variable ID collisions
+test_simple_lambda(): Int = {
+    // Single lambda
+    result1 = 5 |> |x| x * 2
+    
+    result1
+}
+
+// Test multiple lambdas in sequence
+test_multiple_lambdas(): Int = {
+    // Multiple lambdas that might cause ID collisions
+    result1 = 5 |> |x| x * 2
+    result2 = 7 |> |y| y + 3
+    
+    result1 + result2
+}
+
+// Test nested lambda usage
+test_lambda_chain(): Int = {
+    // Chain of lambda operations
+    result = 3
+        |> |a| a + 1
+        |> |b| b * 2
+    
+    result
+}
+
+// Main function
+main(): Int = {
+    simple = test_simple_lambda()      // Should be 10
+    multiple = test_multiple_lambdas() // Should be 20 (10 + 10)
+    chain = test_lambda_chain()        // Should be 8 ((3 + 1) * 2)
+    
+    simple + multiple + chain
+}

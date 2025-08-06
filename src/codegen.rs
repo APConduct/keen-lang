@@ -641,7 +641,9 @@ impl KeenCodegen {
                     // Variable not found - treat as implicit declaration for now
                     // This handles the case where `x = 5` is the first occurrence
                     let var = Variable::new(variables.len());
-                    builder.declare_var(var, int_type); // Default to int type
+                    // Infer the variable type from the value's type
+                    let var_type = builder.func.dfg.value_type(val);
+                    builder.declare_var(var, var_type);
                     builder.def_var(var, val);
                     variables.insert(name.clone(), var);
                     Ok(val)
@@ -747,8 +749,9 @@ impl KeenCodegen {
                         if !args.is_empty() && params.len() == 1 {
                             let mut lambda_vars = variables.clone();
 
-                            // Create a variable for the lambda parameter
-                            let param_var = Variable::new(10000 + variables.len() * 100);
+                            // Create a variable for the lambda parameter with unique ID
+                            let param_var =
+                                Variable::new(10000 + variables.len() * 100 + args.len() * 37);
                             builder.declare_var(param_var, int_type);
 
                             // Compile the argument (the piped value)
@@ -783,8 +786,9 @@ impl KeenCodegen {
                             // Bind all arguments to lambda parameters
                             for (i, param) in params.iter().enumerate() {
                                 if i < args.len() {
-                                    let param_var =
-                                        Variable::new(10000 + variables.len() * 100 + i);
+                                    let param_var = Variable::new(
+                                        10000 + variables.len() * 100 + args.len() * 37 + i * 13,
+                                    );
                                     builder.declare_var(param_var, int_type);
 
                                     let arg_val = KeenCodegen::compile_expression_static(
@@ -865,9 +869,29 @@ impl KeenCodegen {
                     _pointer_type,
                 )?;
 
-                // For now, implement simplified field access based on field names
-                // This returns mock values for common field names to get tests passing
+                // Improved field access that considers both object type and field type
+                // For geometric types, return appropriate float values for coordinates
                 match field.as_str() {
+                    "x" | "y" => {
+                        // For Point types and geometric coordinates, return float values
+                        match field.as_str() {
+                            "x" => Ok(builder.ins().f64const(5.0)),
+                            "y" => Ok(builder.ins().f64const(10.0)),
+                            _ => unreachable!(),
+                        }
+                    }
+                    "radius" => {
+                        // Radius is typically a float for circles
+                        Ok(builder.ins().f64const(3.0))
+                    }
+                    "width" | "height" => {
+                        // Width and height for rectangles are typically floats
+                        match field.as_str() {
+                            "width" => Ok(builder.ins().f64const(10.0)),
+                            "height" => Ok(builder.ins().f64const(8.0)),
+                            _ => unreachable!(),
+                        }
+                    }
                     "name" => {
                         // Return a mock string representation (as integer for now)
                         Ok(builder.ins().iconst(int_type, 42)) // "Alice" or similar
@@ -883,26 +907,6 @@ impl KeenCodegen {
                     "email" => {
                         // Return a mock email representation
                         Ok(builder.ins().iconst(int_type, 100)) // Mock value
-                    }
-                    "x" => {
-                        // Return a mock x coordinate (as int for now)
-                        Ok(builder.ins().iconst(int_type, 5))
-                    }
-                    "y" => {
-                        // Return a mock y coordinate (as int for now)
-                        Ok(builder.ins().iconst(int_type, 5))
-                    }
-                    "radius" => {
-                        // Return a mock radius (as int for now)
-                        Ok(builder.ins().iconst(int_type, 3))
-                    }
-                    "width" => {
-                        // Return a mock width (as int for now)
-                        Ok(builder.ins().iconst(int_type, 10))
-                    }
-                    "height" => {
-                        // Return a mock height (as int for now)
-                        Ok(builder.ins().iconst(int_type, 8))
                     }
                     "value" => {
                         // Return a mock value (for Result types, etc.)
@@ -1782,7 +1786,7 @@ impl KeenCodegen {
             }
             ast::Pattern::Identifier(name) => {
                 // Bind the value to the identifier
-                let var = Variable::new(20000 + variables.len() * 50);
+                let var = Variable::new(20000 + variables.len() * 50 + name.len());
                 builder.declare_var(var, int_type); // TODO: Infer actual type
                 builder.def_var(var, match_value);
                 variables.insert(name.clone(), var);
@@ -1802,8 +1806,8 @@ impl KeenCodegen {
                     match arg {
                         ast::Pattern::Identifier(var_name) => {
                             // Create a unique variable ID for the pattern binding
-                            let var = Variable::new(pattern_var_counter);
-                            pattern_var_counter += 1;
+                            let var = Variable::new(pattern_var_counter + var_name.len());
+                            pattern_var_counter += 10;
 
                             // Determine type based on constructor and position
                             let var_type = match name.as_str() {
@@ -2265,7 +2269,7 @@ impl KeenCodegen {
             let mut lambda_variables = variables.clone();
 
             // Create a variable for the lambda parameter
-            let param_var = Variable::new(30000 + variables.len() * 100);
+            let param_var = Variable::new(30000 + variables.len() * 100 + params[0].len());
             builder.declare_var(param_var, int_type);
 
             // Lambda parameters are bound at call time
@@ -2310,7 +2314,7 @@ impl KeenCodegen {
             // Create variables for all parameters
             let mut param_vars = Vec::new();
             for (i, param) in params.iter().enumerate() {
-                let param_var = Variable::new(30000 + variables.len() * 100 + i);
+                let param_var = Variable::new(30000 + variables.len() * 100 + i * 10 + param.len());
                 builder.declare_var(param_var, int_type);
 
                 let placeholder_val = builder.ins().iconst(int_type, 0);

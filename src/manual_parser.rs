@@ -156,20 +156,9 @@ impl ManualParser {
     }
 
     fn parse_when_arm(&mut self) -> Result<WhenArm, ParseError> {
-        eprintln!(
-            "DEBUG: Starting when arm parsing, current token: {:?}",
-            self.current_token()
-        );
-
         let condition = self.parse_when_condition()?;
-        eprintln!("DEBUG: Parsed when arm condition");
-
         self.expect_token(&Token::Arrow, "Expected '->' after when condition")?;
-        eprintln!("DEBUG: Found arrow in when arm");
-
         let body = self.parse_when_arm_body()?;
-        eprintln!("DEBUG: Parsed when arm body");
-
         Ok(WhenArm { condition, body })
     }
 
@@ -199,6 +188,10 @@ impl ManualParser {
             Some(Token::False) => {
                 self.advance();
                 Ok(Expression::Literal(Literal::Boolean(false)))
+            }
+            Some(Token::Minus) => {
+                // Handle unary minus (negative numbers)
+                self.parse_simple_expression()
             }
             Some(Token::Identifier(name)) => {
                 let name = name.clone();
@@ -357,14 +350,8 @@ impl ManualParser {
     }
 
     fn parse_condition_expression(&mut self) -> Result<Expression, ParseError> {
-        eprintln!(
-            "DEBUG: Starting condition expression parsing, current token: {:?}",
-            self.current_token()
-        );
-
         // Parse a simple comparison expression for when conditions
         let left = self.parse_simple_expression()?;
-        eprintln!("DEBUG: Parsed left side of condition");
 
         // Check for comparison operators
         match self.current_token() {
@@ -423,22 +410,15 @@ impl ManualParser {
                 })
             }
             _ => {
-                eprintln!("DEBUG: No comparison operator, returning left expression");
                 Ok(left) // No comparison operator, return as-is
             }
         }
     }
 
     fn parse_when_condition(&mut self) -> Result<Expression, ParseError> {
-        eprintln!(
-            "DEBUG: Starting when condition parsing, current token: {:?}",
-            self.current_token()
-        );
-
         // Handle special when arm patterns
         match self.current_token() {
             Some(Token::Underscore) => {
-                eprintln!("DEBUG: Found wildcard pattern in when condition");
                 self.advance();
                 // For wildcard patterns, create a literal true expression to match anything
                 Ok(Expression::Literal(Literal::Boolean(true)))
@@ -450,7 +430,6 @@ impl ManualParser {
             | Some(Token::Greater)
             | Some(Token::LessEqual)
             | Some(Token::GreaterEqual) => {
-                eprintln!("DEBUG: Found shorthand comparison operator in when condition");
                 let op = match self.current_token().unwrap() {
                     Token::Equal => BinaryOp::Equal,
                     Token::NotEqual => BinaryOp::NotEqual,
@@ -478,39 +457,28 @@ impl ManualParser {
             Some(Token::Integer(n)) => {
                 let n = *n;
                 self.advance();
-                eprintln!("DEBUG: Found integer literal in when condition: {}", n);
                 Ok(Expression::Literal(Literal::Integer(n)))
             }
             Some(Token::Float(f)) => {
                 let f = *f;
                 self.advance();
-                eprintln!("DEBUG: Found float literal in when condition: {}", f);
                 Ok(Expression::Literal(Literal::Float(f)))
             }
             Some(Token::String(s)) => {
                 let s = s.clone();
                 self.advance();
-                eprintln!("DEBUG: Found string literal in when condition: {}", s);
                 Ok(Expression::Literal(Literal::String(s)))
             }
             Some(Token::True) => {
                 self.advance();
-                eprintln!("DEBUG: Found boolean true in when condition");
                 Ok(Expression::Literal(Literal::Boolean(true)))
             }
             Some(Token::False) => {
                 self.advance();
-                eprintln!("DEBUG: Found boolean false in when condition");
                 Ok(Expression::Literal(Literal::Boolean(false)))
             }
-            Some(Token::Identifier(_)) => {
-                eprintln!("DEBUG: Found identifier, parsing as condition expression");
-                self.parse_condition_expression()
-            }
-            _ => {
-                eprintln!("DEBUG: Parsing complex when condition expression");
-                self.parse_condition_expression()
-            }
+            Some(Token::Identifier(_)) => self.parse_condition_expression(),
+            _ => self.parse_condition_expression(),
         }
     }
 

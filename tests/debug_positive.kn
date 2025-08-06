@@ -1,0 +1,15 @@
+// Debug with positive numbers to isolate the negative number issue
+
+classify_number_positive(n: Int): Int = {
+    when n {
+        < 0 -> 1
+        == 0 -> 2
+        > 0 -> 3
+        _ -> 4
+    }
+}
+
+main(): Int = {
+    result = classify_number_positive(5)
+    result
+}

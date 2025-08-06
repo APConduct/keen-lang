@@ -1,0 +1,34 @@
+// Minimal when expression test to debug parsing issue
+
+// Test simple when expression with == operator
+test_simple_when(): Int = {
+    n = 0
+    
+    result = when n {
+        == 0 -> 100
+        _ -> 200
+    }
+    
+    result
+}
+
+// Test when expression without == operator (this should work)
+test_working_when(): Int = {
+    n = 5
+    
+    result = when n {
+        < 0 -> 1
+        > 0 -> 2
+        _ -> 0
+    }
+    
+    result
+}
+
+// Main function
+main(): Int = {
+    result1 = test_working_when()  // This should work
+    result2 = test_simple_when()   // This might fail
+    
+    result1 + result2
+}

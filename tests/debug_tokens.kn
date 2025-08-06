@@ -1,0 +1,13 @@
+// Debug tokens - minimal test to see exact tokenization
+
+// This should show us exactly what tokens are generated for negative numbers
+test_negative(): Int = {
+    when 5 {
+        < 0 -> -1
+        _ -> 1
+    }
+}
+
+main(): Int = {
+    test_negative()
+}
